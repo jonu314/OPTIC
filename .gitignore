@@ -1,0 +1,10 @@
+.env
+*.env
+*.log
+__pycache__/
+.vscode/
+.streamlit/
+.azure/
+.docker/
+.venv/
+iguazio.env
