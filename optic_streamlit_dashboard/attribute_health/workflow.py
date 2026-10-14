@@ -74,7 +74,10 @@ class Worker:
         self.lease = self.store.claim("run:" + run_id, self.owner)
         if not self.lease:
             return {"id": run_id, "status": "leased", "next_action": "Another worker owns this run."}
+        bind_heartbeat = getattr(self.repository, "set_heartbeat", None)
         try:
+            if callable(bind_heartbeat):
+                bind_heartbeat(self._renew)
             if resume:
                 run = self.store.get("runs", run_id)
                 if not run:
@@ -186,6 +189,8 @@ class Worker:
                                                        type(storage_error).__name__)
             raise
         finally:
+            if callable(bind_heartbeat):
+                bind_heartbeat(None)
             if self.lease:
                 active_error = sys.exception()
                 try:

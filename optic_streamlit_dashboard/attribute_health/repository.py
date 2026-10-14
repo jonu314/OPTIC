@@ -75,10 +75,16 @@ class SnowflakeRepository:
         self._columns = None
         self._registry = None
         self._readiness_result = None
+        self._heartbeat = None
+
+    def set_heartbeat(self, callback):
+        self._heartbeat = callback
 
     def query(self, sql, params=()):
         if not re.match(r"\s*(SELECT|WITH)\b", sql, re.I):
             raise ValueError("Attribute Health source adapter is SELECT-only.")
+        if self._heartbeat is not None:
+            self._heartbeat()
         conn = self.connection_factory()
         try:
             cursor = conn.cursor()

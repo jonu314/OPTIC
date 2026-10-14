@@ -1,5 +1,6 @@
 import json
 import unittest
+from unittest.mock import Mock
 from dataclasses import replace
 
 from attribute_health.config import Settings
@@ -194,6 +195,34 @@ class ListSamplePopulationTests(unittest.TestCase):
         result = repo.aggregate([self.contract], WINDOW)
         self.assertEqual(sum(r["eligible"] for r in result[self.contract.key]), 0)
 
+
+class QueryHeartbeatTests(unittest.TestCase):
+    def test_renewal_precedes_each_connection_and_can_be_unbound(self):
+        events = []
+        cursor = Mock()
+        cursor.description = [("N",)]
+        cursor.fetchall.return_value = [(1,)]
+        connection = Mock()
+        connection.cursor.return_value = cursor
+        def connect():
+            events.append("connect")
+            return connection
+        repo = SnowflakeRepository(connection_factory=connect)
+        repo.set_heartbeat(lambda: events.append("renew"))
+        self.assertEqual(repo.query("SELECT 1"), [{"n": 1}])
+        repo.query("SELECT 1")
+        repo.set_heartbeat(None)
+        repo.query("SELECT 1")
+        self.assertEqual(events, ["renew", "connect", "renew", "connect", "connect"])
+
+    def test_lost_lease_prevents_query_dispatch(self):
+        from attribute_health.store import LeaseLost
+        connection = Mock()
+        repo = SnowflakeRepository(connection_factory=connection)
+        repo.set_heartbeat(Mock(side_effect=LeaseLost("expired")))
+        with self.assertRaises(LeaseLost):
+            repo.query("SELECT 1")
+        connection.assert_not_called()
 
 if __name__ == "__main__":
     unittest.main()

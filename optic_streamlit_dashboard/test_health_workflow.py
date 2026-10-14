@@ -49,6 +49,29 @@ class WorkflowTests(MemoryStoreCase):
     def candidate(self):
         return next(x for x in self.store.list("incidents") if x.get("signals"))
 
+    def test_source_heartbeat_keeps_long_discovery_leased_and_is_unbound(self):
+        callbacks = []
+        self.repository.set_heartbeat = lambda callback: callbacks.append(callback)
+        original = self.repository.registry
+        def slow_registry():
+            for _ in range(3):
+                self.clock[0] += timedelta(seconds=self.settings.lease_seconds * .6)
+                callbacks[-1]()
+            return original()
+        self.repository.registry = slow_registry
+        run = self.worker().execute("detect", window=self.window)
+        self.assertEqual(run["status"], "complete")
+        self.assertTrue(callable(callbacks[0]))
+        self.assertIsNone(callbacks[-1])
+
+    def test_source_heartbeat_is_unbound_after_discovery_failure(self):
+        callbacks = []
+        self.repository.set_heartbeat = lambda callback: callbacks.append(callback)
+        self.repository.registry = Mock(side_effect=RuntimeError("source failed"))
+        with self.assertRaisesRegex(RuntimeError, "source failed"):
+            self.worker().execute("detect", window=self.window)
+        self.assertIsNone(callbacks[-1])
+
     def test_full_offline_e2e_persists_all_stages_and_disposition(self):
         run = self.worker().execute("run", window=self.window)
         incident = self.candidate()
