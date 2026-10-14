@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<title>OPTIC Console — Production Monitoring</title>
+<script src="/vendor/echarts.min.js"></script>
+<style>
+  /* ============================================================
+     Design tokens
+     ============================================================ */
+  :root{
+    /* surfaces */
+    --bg:#0a0c0f;
+    --panel:#111519;
+    --panel-2:#151a20;
+    --inset:#0c0f13;
+    --line:rgba(255,255,255,0.085);
+    --line-soft:rgba(255,255,255,0.055);
+
+    /* text */
+    --txt:#f2f4f7;
+    --txt-2:#a3adb8;
+    --txt-3:#6e7883;
+
+    /* accent — one blue, used sparingly */
+    --acc:#3d9bff;
+    --acc-strong:#2f8ef2;
+    --acc-tint:rgba(61,155,255,0.13);
+    --acc-line:rgba(61,155,255,0.45);
+
+    /* status */
+    --ok:#34d399;      --ok-tint:rgba(52,211,153,0.13);
+    --warn:#fbbf24;    --warn-tint:rgba(251,191,36,0.12);
+    --risk:#f87171;    --risk-tint:rgba(248,113,113,0.13);
+    --info:#67b7ff;    --info-tint:rgba(103,183,255,0.13);
+
+    /* geometry */
+    --r-sm:7px; --r-md:10px; --r-lg:13px;
+    --shadow-sm:0 1px 2px rgba(0,0,0,0.35);
+    --shadow-md:0 1px 2px rgba(0,0,0,0.4), 0 12px 32px -16px rgba(0,0,0,0.55);
+    --ring:0 0 0 3px rgba(61,155,255,0.28);
+
+    /* type */
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",Inter,Roboto,system-ui,sans-serif;
+    --mono:ui-monospace,"Cascadia Code","SF Mono",Consolas,monospace;
+
+    --header-h:52px;
+    --ease:cubic-bezier(.25,.1,.25,1);
+  }
+
+  /* ============================================================
+     Base
+     ============================================================ */
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    font-family:var(--font);
+    background:var(--bg);
+    color:var(--txt);
+    font-size:13.5px;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  ::selection{background:rgba(61,155,255,0.3)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2);background-clip:content-box;border:2px solid transparent}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--acc-line);outline-offset:2px;border-radius:4px}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+
+  /* ============================================================
+     Top header
+     ============================================================ */
+  .topbar{
+    position:sticky;top:0;z-index:60;
+    height:var(--header-h);
+    display:flex;align-items:center;gap:16px;
+    padding:0 20px;
+    background:rgba(10,12,15,0.86);
+    backdrop-filter:blur(16px) saturate(1.4);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .mark{
+    width:26px;height:26px;border-radius:7px;flex:none;
+    display:grid;place-items:center;
+    background:linear-gradient(160deg,#2f8ef2,#1f6fd0);
+    color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.02em;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.25), var(--shadow-sm);
+  }
+  .brand .name{font-size:13.5px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap}
+  .brand .env{
+    font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--txt-3);border:1px solid var(--line);border-radius:5px;
+    padding:2px 7px;margin-left:2px;white-space:nowrap;
+  }
+  .lab-link{
+    color:var(--txt-2);text-decoration:none;font-size:12px;font-weight:650;
+    border:1px solid var(--line);border-radius:7px;padding:6px 10px;
+    transition:color .15s,border-color .15s,background .15s;
+  }
+  .lab-link:hover,.lab-link:focus-visible{
+    color:var(--txt);border-color:var(--blue);background:var(--blue-dim);outline:none;
+  }
+  .topbar .spacer{flex:1}
+  .meta{display:flex;align-items:center;gap:0;min-width:0;overflow:hidden}
+  .meta-item{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12px;color:var(--txt-2);white-space:nowrap;
+    padding:0 13px;position:relative;
+  }
+  .meta-item + .meta-item::before{
+    content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+    width:1px;height:14px;background:var(--line);
+  }
+  .meta-item.mono{font-family:var(--mono);font-size:11px;color:var(--txt-3)}
+
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+  .dot.g{background:var(--ok);box-shadow:0 0 0 3px var(--ok-tint)}
+  .dot.r{background:var(--risk);box-shadow:0 0 0 3px var(--risk-tint)}
+  .dot.a{background:var(--warn);box-shadow:0 0 0 3px var(--warn-tint)}
+
+  /* ============================================================
+     App shell
+     ============================================================ */
+  .app{display:grid;grid-template-columns:276px minmax(0,1fr);align-items:start}
+
+  /* ============================================================
+     Sidebar / filter rail
+     ============================================================ */
+  .sidebar{
+    position:sticky;top:var(--header-h);
+    height:calc(100vh - var(--header-h));
+    overflow-y:auto;overscroll-behavior:contain;
+    background:var(--bg);
+    border-right:1px solid var(--line);
+    padding:18px 16px 40px;
+  }
+  .side-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 2px 14px;margin-bottom:4px;border-bottom:1px solid var(--line-soft);
+  }
+  .side-head .t{font-size:12px;font-weight:700;letter-spacing:.02em}
+  .status{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--txt-2)}
+
+  .sect{margin-top:20px}
+  .sect>label{
+    display:block;font-size:10.5px;font-weight:650;letter-spacing:.09em;
+    text-transform:uppercase;color:var(--txt-3);margin-bottom:8px;
+  }
+  .hint{font-size:11px;color:var(--txt-3);margin-top:7px;line-height:1.5}
+
+  /* fields */
+  .field{
+    width:100%;background:var(--inset);
+    border:1px solid var(--line);color:var(--txt);
+    border-radius:var(--r-sm);padding:7px 10px;
+    font-size:12.5px;font-family:var(--font);
+    transition:border-color .14s var(--ease), box-shadow .14s var(--ease);
+  }
+  .field::placeholder{color:var(--txt-3)}
+  .field:hover{border-color:rgba(255,255,255,0.16)}
+  .field:focus{border-color:var(--acc-line);box-shadow:var(--ring);outline:none}
+  select.field{
+    appearance:none;cursor:pointer;padding-right:28px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236e7883' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;
+  }
+
+  /* segmented control */
+  .seg{
+    display:flex;flex-wrap:wrap;gap:2px;padding:3px;
+    background:var(--inset);border:1px solid var(--line);border-radius:9px;
+  }
+  .seg button{
+    flex:1;min-width:0;
+    background:transparent;border:0;color:var(--txt-2);
+    border-radius:6px;padding:6px 4px;
+    font-size:12px;font-weight:600;font-family:var(--font);
+    cursor:pointer;transition:background .14s var(--ease), color .14s var(--ease);
+  }
+  .seg button:hover{color:var(--txt)}
+  .seg button.on{
+    background:var(--panel-2);color:var(--txt);
+    box-shadow:inset 0 0 0 1px var(--line), var(--shadow-sm);
+  }
+
+  /* custom date range */
+  .date-row{display:flex;gap:8px;margin-top:8px}
+  .d1-row{
+    display:flex;align-items:center;gap:8px;margin-top:9px;
+    font-size:11.5px;color:var(--txt-2);cursor:pointer;user-select:none;
+  }
+  .d1-row input{accent-color:var(--acc);width:13px;height:13px;flex:none;cursor:pointer;margin:0}
+  .d1-row:hover{color:var(--txt)}
+  input[type="date"].field{padding:6px 8px;font-size:12px;min-width:0}
+  input[type="date"].field::-webkit-calendar-picker-indicator{filter:invert(.55);cursor:pointer}
+
+  /* inline numeric threshold control */
+  .minctl{
+    display:flex;align-items:center;gap:8px;flex:none;
+    font-size:11.5px;font-weight:600;color:var(--txt-3);white-space:nowrap;
+  }
+  .minctl input{width:84px}
+
+  /* toggle chips (jobs / brands) */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:170px;overflow-y:auto;padding:1px}
+  .chip{
+    font-size:11.5px;font-weight:550;
+    padding:4px 9px;border-radius:var(--r-sm);
+    border:1px solid var(--line);background:transparent;
+    color:var(--txt-2);cursor:pointer;white-space:nowrap;user-select:none;
+    transition:border-color .13s var(--ease), background .13s var(--ease), color .13s var(--ease);
+  }
+  .chip:hover{border-color:rgba(255,255,255,0.2);color:var(--txt)}
+  .chip.on{
+    background:var(--acc-tint);border-color:var(--acc-line);
+    color:#cfe6ff;font-weight:600;
+  }
+
+  /* attribute picker */
+  .attrbox{
+    max-height:236px;overflow-y:auto;
+    border:1px solid var(--line);border-radius:var(--r-sm);
+    background:var(--inset);padding:4px;
+  }
+  .attr-item{
+    display:flex;align-items:center;gap:9px;
+    padding:5.5px 8px;border-radius:6px;cursor:pointer;
+    font-size:12.5px;transition:background .12s var(--ease);
+  }
+  .attr-item:hover{background:rgba(255,255,255,0.045)}
+  .attr-item input{accent-color:var(--acc);width:13px;height:13px;flex:none;cursor:pointer}
+  .attr-item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt-2)}
+  .attr-item:hover .nm{color:var(--txt)}
+  .attr-item input:checked ~ .nm{color:var(--txt)}
+  .attr-item .rt{
+    font-size:9px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--txt-3);background:rgba(255,255,255,0.06);
+    padding:2px 6px;border-radius:4px;flex:none;
+  }
+  .linklike{cursor:pointer;color:var(--acc);font-size:11px;font-weight:600}
+  .linklike:hover{text-decoration:underline}
+
+  /* buttons */
+  .btnrow{display:flex;gap:8px;margin-top:16px}
+  .btn{
+    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    border-radius:var(--r-sm);padding:8px 12px;
+    font-size:12.5px;font-weight:600;font-family:var(--font);cursor:pointer;
+    transition:background .14s var(--ease), border-color .14s var(--ease), transform .1s var(--ease);
+  }
+  .btn:hover{border-color:rgba(255,255,255,0.2);background:#1a2027}
+  .btn:active{transform:translateY(0.5px)}
+  .btn.primary{
+    background:var(--acc-strong);border-color:transparent;color:#fff;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.18), var(--shadow-sm);
+  }
+  .btn.primary:hover{background:var(--acc)}
+  .btn.icon{flex:0 0 38px;padding:8px 0;font-size:14px;color:var(--txt-2)}
+  .btn.icon:hover{color:var(--txt)}
+  .btn[disabled]{opacity:.45;pointer-events:none}
+
+  /* ============================================================
+     Main column
+     ============================================================ */
+  .main{min-width:0;padding:22px 26px 44px}
+  .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:4px}
+  .page-head h1{margin:0;font-size:19px;font-weight:700;letter-spacing:-0.015em}
+  .page-head .sub{color:var(--txt-2);font-size:12.5px;margin-top:4px;max-width:720px}
+  .filters-toggle{display:none}
+
+  /* tabs */
+  .tabs{
+    display:flex;gap:22px;margin:16px 0 18px;
+    border-bottom:1px solid var(--line);
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{
+    padding:9px 1px 10px;white-space:nowrap;
+    font-size:13px;font-weight:600;color:var(--txt-3);
+    cursor:pointer;border-bottom:2px solid transparent;
+    margin-bottom:-1px;user-select:none;
+    transition:color .14s var(--ease), border-color .14s var(--ease);
+  }
+  .tab:hover{color:var(--txt-2)}
+  .tab.on{color:var(--txt);border-bottom-color:var(--acc)}
+
+  /* view transition */
+  #view.anim > *{animation:rise .26s var(--ease) both}
+  @keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+  /* ============================================================
+     Panels
+     ============================================================ */
+  .grid{display:grid;gap:14px}
+  .row2{grid-template-columns:1.55fr 1fr}
+  .row3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:1150px){.row2,.row3{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--r-lg);
+    padding:16px 18px;
+    box-shadow:var(--shadow-md);
+  }
+  .card h3{
+    margin:0 0 2px;font-size:13px;font-weight:650;letter-spacing:-0.01em;
+    display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  }
+  .ch-sub{font-size:11.5px;color:var(--txt-3);margin-bottom:12px;font-weight:400}
+
+  /* KPI strip — one panel, hairline-divided cells */
+  .stat-strip{
+    display:flex;flex-wrap:wrap;
+    gap:1px;background:var(--line);padding:0;overflow:hidden;
+  }
+  .stat{flex:1 1 168px;background:var(--panel);padding:15px 18px 14px;min-width:0}
+  .stat .label{
+    font-size:10.5px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--txt-3);
+  }
+  .stat .val{
+    font-size:25px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;
+    margin-top:5px;font-variant-numeric:tabular-nums;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .stat .delta{margin-top:6px}
+  .delta{font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}
+  .delta.up{color:var(--ok)}
+  .delta.down{color:var(--risk)}
+  .delta.flat{color:var(--txt-3)}
+
+  .chart{width:100%;height:300px}
+  .chart.sm{height:240px}
+  .chart.lg{height:360px}
+
+  /* toolbar inside panels */
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .toolbar .left{font-size:12.5px;color:var(--txt-2);min-width:0}
+  .toolbar .left b{color:var(--txt);font-weight:650}
+  .mini{display:flex;gap:2px;padding:3px;background:var(--inset);border:1px solid var(--line);border-radius:8px}
+  .mini button{
+    background:transparent;border:0;color:var(--txt-2);
+    border-radius:5px;padding:5px 11px;
+    font-size:11.5px;font-weight:600;font-family:var(--font);cursor:pointer;
+    transition:background .13s var(--ease), color .13s var(--ease);
+  }
+  .mini button:hover{color:var(--txt)}
+  .mini button.on{background:var(--panel-2);color:var(--txt);box-shadow:inset 0 0 0 1px var(--line)}
+
+  /* ============================================================
+     Tables
+     ============================================================ */
+  .tbl-wrap{max-height:520px;overflow:auto;border:1px solid var(--line-soft);border-radius:var(--r-md);background:var(--panel)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{
+    text-align:left;color:var(--txt-3);font-weight:650;
+    font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+    padding:9px 12px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--panel-2);z-index:2;white-space:nowrap;
+  }
+  td{
+    padding:8px 12px;border-bottom:1px solid var(--line-soft);
+    color:var(--txt);font-variant-numeric:tabular-nums;vertical-align:middle;
+  }
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .1s var(--ease)}
+  tbody tr:hover td{background:rgba(255,255,255,0.028)}
+  th.num,td.num{text-align:right}
+  .mono{font-family:var(--mono);font-size:11.5px;color:#9fc4ef}
+
+  /* progress bar in tables */
+  .bar{height:5px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;min-width:56px}
+  .bar>i{display:block;height:100%;border-radius:4px;background:var(--acc)}
+
+  /* severity + tags */
+  .sev{
+    font-size:10.5px;font-weight:650;letter-spacing:.02em;
+    padding:2.5px 8px 2.5px 7px;border-radius:6px;
+    display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  }
+  .sev::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+  .sev.High{background:var(--risk-tint);color:var(--risk)}
+  .sev.Medium{background:var(--warn-tint);color:var(--warn)}
+  .sev.Low{background:var(--info-tint);color:var(--info)}
+  .sev.OK{background:var(--ok-tint);color:var(--ok)}
+  .tag{
+    display:inline-flex;align-items:center;gap:4px;
+    font-size:10px;font-weight:650;letter-spacing:.03em;
+    padding:2px 7px;border-radius:5px;
+    background:var(--ok-tint);color:var(--ok);
+  }
+
+  /* ============================================================
+     States
+     ============================================================ */
+  .empty{text-align:center;color:var(--txt-3);padding:52px 20px;font-size:13px}
+  .empty .ic{
+    width:42px;height:42px;margin:0 auto 12px;border-radius:50%;
+    border:1px solid var(--line);display:grid;place-items:center;
+    font-size:17px;color:var(--txt-3);
+  }
+  .loader{
+    display:inline-block;width:15px;height:15px;
+    border:2px solid rgba(61,155,255,0.25);border-top-color:var(--acc);
+    border-radius:50%;animation:spin .7s linear infinite;
+    vertical-align:-2px;margin-right:9px;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .warn{
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--panel);border:1px solid var(--line);
+    border-left:3px solid var(--warn);
+    color:var(--txt-2);padding:10px 14px;border-radius:var(--r-md);
+    font-size:12.5px;margin:12px 0 2px;
+  }
+  .warn b{color:var(--warn);font-weight:650}
+
+  .foot{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    font-size:11px;color:var(--txt-3);margin-top:28px;padding-top:14px;
+    border-top:1px solid var(--line-soft);
+  }
+
+  /* ============================================================
+     Responsive — sidebar becomes a drawer
+     ============================================================ */
+  .scrim{display:none}
+  @media(max-width:1020px){
+    .app{grid-template-columns:1fr}
+    .sidebar{
+      position:fixed;left:0;top:var(--header-h);bottom:0;z-index:70;
+      width:300px;max-width:86vw;
+      background:var(--bg);
+      transform:translateX(-102%);
+      transition:transform .24s var(--ease);
+      box-shadow:none;
+    }
+    body.filters-open .sidebar{transform:none;box-shadow:24px 0 60px -20px rgba(0,0,0,0.6)}
+    .scrim{
+      display:block;position:fixed;inset:var(--header-h) 0 0 0;z-index:65;
+      background:rgba(0,0,0,0.5);opacity:0;pointer-events:none;
+      transition:opacity .24s var(--ease);
+    }
+    body.filters-open .scrim{opacity:1;pointer-events:auto}
+    .filters-toggle{
+      display:inline-flex;align-items:center;gap:7px;flex:none;
+      background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+      border-radius:var(--r-sm);padding:7px 13px;
+      font-size:12.5px;font-weight:600;font-family:var(--font);cursor:pointer;
+    }
+    .main{padding:18px 16px 40px}
+    .meta-item.mono{display:none}
+  }
+  @media(max-width:660px){
+    .meta-item:nth-child(2){display:none}
+    .stat .val{font-size:21px}
+    .topbar{gap:8px;padding:0 12px}
+    .topbar .brand .env,.topbar .meta{display:none}
+    .topbar .brand .name{font-size:12px}
+    .lab-link{font-size:11px;padding:5px 8px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<header class="topbar">
+  <div class="brand">
+    <div class="mark" aria-hidden="true">OP</div>
+    <div class="name">OPTIC Console</div>
+    <div class="env">Production</div>
+  </div>
+  <a class="lab-link" href="/model-lab">Model Lab</a>
+  <a class="lab-link" href="/attribute-health">Attribute Health</a>
+  <div class="spacer"></div>
+  <div class="meta" id="heroPills" aria-live="polite"></div>
+</header>
+
+<div class="app">
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" aria-label="Filters">
+    <div class="side-head">
+      <span class="t">Filters</span>
+      <span class="status" id="connStatus"><span class="dot a"></span><span>Connecting…</span></span>
+    </div>
+
+    <div class="sect">
+      <label>Date range</label>
+      <div class="seg" id="rangeSeg" role="group" aria-label="Date range">
+        <button data-d="7">7d</button>
+        <button data-d="14">14d</button>
+        <button data-d="30" class="on">30d</button>
+        <button data-d="90">90d</button>
+        <button data-d="custom">Custom</button>
+      </div>
+      <div class="date-row" id="customRange" style="display:none">
+        <input type="date" class="field" id="startDate" aria-label="Start date"/>
+        <input type="date" class="field" id="endDate" aria-label="End date"/>
+      </div>
+      <label class="d1-row" for="d1Toggle" title="Ends every query window at yesterday, since the source table can lag a day behind.">
+        <input type="checkbox" id="d1Toggle"/>
+        <span>Use latest complete day (D-1)</span>
+      </label>
+      <div class="hint" id="rangeLabel"></div>
+    </div>
+
+    <div class="sect">
+      <label for="grainSel">Trend grain</label>
+      <select class="field" id="grainSel">
+        <option value="day">Day</option>
+        <option value="week">Week</option>
+        <option value="month">Month</option>
+      </select>
+    </div>
+
+    <div class="sect">
+      <label>Jobs</label>
+      <div class="chips" id="jobChips"></div>
+    </div>
+
+    <div class="sect">
+      <label>Brands</label>
+      <div class="chips" id="brandChips"></div>
+    </div>
+
+    <div class="sect">
+      <label for="validationSel">Attributes</label>
+      <select class="field" id="validationSel" style="margin-bottom:8px">
+        <option value="drift">Drift-eligible attrs</option>
+        <option value="all">All catalog attrs</option>
+        <option value="freeform">Freeform / non-drift</option>
+      </select>
+      <input class="field" id="attrSearch" placeholder="Search attributes…" style="margin-bottom:8px" aria-label="Search attributes"/>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <span class="hint" id="attrCount" style="margin:0"></span>
+        <span style="display:flex;gap:12px">
+          <span id="attrAll" class="linklike" role="button" tabindex="0">All</span>
+          <span id="attrNone" class="linklike" role="button" tabindex="0">None</span>
+        </span>
+      </div>
+      <div class="attrbox" id="attrBox"></div>
+    </div>
+
+    <div class="btnrow">
+      <button class="btn primary" id="applyBtn">Apply</button>
+      <button class="btn icon" id="refreshBtn" title="Clear server cache and reload" aria-label="Clear server cache and reload">↻</button>
+    </div>
+    <div class="hint">Cached queries expire every 5 minutes. Apply re-runs the active view against Snowflake.</div>
+  </aside>
+  <div class="scrim" id="scrim" aria-hidden="true"></div>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1>Production Monitoring</h1>
+        <div class="sub">Live OPTIC coverage, drift detection, value distributions, and expected-output validation from Snowflake.</div>
+      </div>
+      <button class="filters-toggle" id="filtersToggle" aria-label="Toggle filters">⛭ Filters</button>
+    </div>
+
+    <div id="metaWarn"></div>
+
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Console views">
+      <div class="tab on" data-t="live"     role="tab" tabindex="0" aria-selected="true">Live OPTIC</div>
+      <div class="tab" data-t="drift"       role="tab" tabindex="0" aria-selected="false">Attribute Drift</div>
+      <div class="tab" data-t="spikes"      role="tab" tabindex="0" aria-selected="false">Value Spikes</div>
+      <div class="tab" data-t="expected"    role="tab" tabindex="0" aria-selected="false">Expected Output Drift</div>
+      <div class="tab" data-t="metadata"    role="tab" tabindex="0" aria-selected="false">Attribute Metadata</div>
+      <div class="tab" data-t="explorer"    role="tab" tabindex="0" aria-selected="false">Data Explorer</div>
+    </nav>
+
+    <section id="view" role="tabpanel"></section>
+
+    <div class="foot">
+      <div>OPTIC Production Dashboard · Vistra Analytics · reuses <span class="mono">Dashboard_Final.py</span> logic</div>
+      <div>Snowflake · ECharts · key-pair auth</div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ============================== STATE ==============================
+const S = {
+  source: null, live_ok:false, error:null,
+  date_col:null, job_col:null, brand_col:null,
+  columns:[], metadata:[], jobs:[], brands:[],
+  selJobs:new Set(), selBrands:new Set(), selAttrs:new Set(),
+  rangeDays:30, rangeMode:'preset', customStart:null, customEnd:null, d1:false,
+  grain:'day', validation:'drift', search:'',
+  tab:'live', charts:[], booted:false
+};
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const fmtInt = n => (n==null||isNaN(n))?'—':Number(n).toLocaleString();
+const fmtPct = (n,d=1) => (n==null||isNaN(n))?'—':(n*100).toFixed(d)+'%';
+const fmtPctSigned = n => (n==null||isNaN(n))?null:(n>=0?'+':'')+n.toFixed(1)+'%';
+function dateRange(){
+  const iso=d=>d.toISOString().slice(0,10);
+  // D-1 mode caps the window at yesterday (source table can lag a day behind)
+  const cap=new Date(); if(S.d1) cap.setDate(cap.getDate()-1);
+  const capIso=iso(cap);
+  if(S.rangeMode==='custom'&&S.customStart&&S.customEnd){
+    let s=S.customStart,e=S.customEnd;
+    if(s>e){const t=s;s=e;e=t;}
+    if(S.d1&&e>capIso) e=capIso;
+    if(s>e) s=e;
+    return {start:s,end:e};
+  }
+  const end=new Date(cap); const start=new Date(cap); start.setDate(start.getDate()-S.rangeDays);
+  return {start:iso(start), end:iso(end)};
+}
+function rangeDaysCount(){
+  const {start,end}=dateRange();
+  return Math.max(1,Math.round((new Date(end)-new Date(start))/86400000));
+}
+function disposeCharts(){ S.charts.forEach(c=>{try{c.dispose()}catch(e){}}); S.charts=[]; }
+function mkChart(el){ const c=echarts.init(el,null,{renderer:'canvas'}); S.charts.push(c); return c; }
+function htmlEsc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+window.addEventListener('resize',()=>S.charts.forEach(c=>c.resize()));
+
+// ============================== CHART THEME ==============================
+const PALETTE=['#4d9fff','#34d399','#fbbf24','#f87171','#a78bfa','#22d3ee','#fb923c','#4ade80','#f472b6','#93c5fd','#facc15','#2dd4bf'];
+const AXIS={
+  axisLine:{lineStyle:{color:'rgba(255,255,255,0.14)'}},
+  axisTick:{show:false},
+  axisLabel:{color:'#8b95a1',fontSize:11},
+  splitLine:{lineStyle:{color:'rgba(255,255,255,0.055)'}}
+};
+const TOOLTIP={
+  backgroundColor:'#161b22',borderColor:'rgba(255,255,255,0.12)',borderWidth:1,
+  textStyle:{color:'#f2f4f7',fontSize:12},
+  extraCssText:'box-shadow:0 10px 30px rgba(0,0,0,0.5);border-radius:8px;padding:9px 12px;'
+};
+function baseOpt(){return{
+  color:PALETTE, backgroundColor:'transparent',
+  textStyle:{fontFamily:'-apple-system,Segoe UI,Inter,sans-serif',color:'#f2f4f7'},
+  grid:{left:46,right:16,top:30,bottom:32,containLabel:true},
+  tooltip:Object.assign({trigger:'axis',axisPointer:{lineStyle:{color:'rgba(61,155,255,0.45)'}}},TOOLTIP),
+  legend:{type:'scroll',textStyle:{color:'#aeb7c2',fontSize:11},top:0,icon:'roundRect',itemWidth:10,itemHeight:10,
+    pageIconColor:'#aeb7c2',pageTextStyle:{color:'#8b95a1'}}
+};}
+
+// ============================== API ==============================
+async function api(path, extra={}){
+  const {start,end}=dateRange();
+  const p=new URLSearchParams({start,end,grain:S.grain,
+    jobs:[...S.selJobs].join(','),brands:[...S.selBrands].join(','),
+    attrs:[...S.selAttrs].join(','),source:S.source||'',...extra});
+  const r=await fetch(path+'?'+p.toString());
+  if(!r.ok){ let e='HTTP '+r.status; try{e=(await r.json()).error||e}catch(_){}; throw new Error(e); }
+  return r.json();
+}
+
+// ============================== BOOT ==============================
+async function boot(){
+  setRangeLabel();
+  try{
+    const {start,end}=dateRange();
+    const b=await fetch('/api/bootstrap?'+new URLSearchParams({start,end})).then(r=>r.json());
+    Object.assign(S,{source:b.source_table,live_ok:b.live_ok,error:b.error,
+      date_col:b.date_col,job_col:b.job_col,brand_col:b.brand_col,
+      columns:b.columns||[],metadata:b.metadata||[],jobs:b.jobs||[],brands:b.brands||[]});
+    (b.default_jobs||[]).forEach(j=>S.selJobs.add(j));
+    renderConn(b);
+    renderHero(b);
+    renderMetaWarn(b);
+    buildJobChips(); buildBrandChips(); rebuildAttrs(true);
+    S.booted=true;
+    render();
+  }catch(e){
+    renderConn({live_ok:false,error:e.message});
+    $('#view').innerHTML=`<div class="card"><div class="empty"><div class="ic">!</div>Could not reach the OPTIC API server.<br/><span class="mono">${htmlEsc(e.message)}</span></div></div>`;
+  }
+}
+function renderConn(b){
+  const ok=b.live_ok; const el=$('#connStatus');
+  el.innerHTML=`<span class="dot ${ok?'g':'r'}"></span><span>${ok?'Snowflake connected':'Disconnected'}</span>`;
+}
+function renderHero(b){
+  const {start,end}=dateRange();
+  $('#heroPills').innerHTML=[
+    `<span class="meta-item"><span class="dot ${b.live_ok?'g':'r'}"></span>${b.live_ok?'Connected':'Offline'}</span>`,
+    `<span class="meta-item">${start} – ${end} · ${rangeDaysCount()}d</span>`,
+    `<span class="meta-item" id="latestPill">Latest —</span>`,
+    `<span class="meta-item mono">${htmlEsc((b.source_table||'').split('.').pop())}</span>`
+  ].join('');
+}
+function renderMetaWarn(b){
+  $('#metaWarn').innerHTML = b.metadata_warning ?
+    `<div class="warn"><span><b>Metadata notice</b> — ${htmlEsc(b.metadata_warning)} Using JSON/Excel fallback metadata.</span></div>`:'';
+}
+function setRangeLabel(){
+  const {start,end}=dateRange();
+  $('#rangeLabel').textContent=`${start} → ${end}`;
+}
+
+// ============================== FILTER UI ==============================
+function buildJobChips(){
+  $('#jobChips').innerHTML=S.jobs.map(j=>`<span class="chip ${S.selJobs.has(j)?'on':''}" data-j="${htmlEsc(j)}" role="button" tabindex="0">${htmlEsc(j)}</span>`).join('')||'<span class="hint">none</span>';
+  $$('#jobChips .chip').forEach(c=>c.onclick=()=>{const j=c.dataset.j; S.selJobs.has(j)?S.selJobs.delete(j):S.selJobs.add(j); c.classList.toggle('on'); rebuildAttrs(true);});
+}
+function buildBrandChips(){
+  $('#brandChips').innerHTML=S.brands.map(b=>`<span class="chip ${S.selBrands.has(b)?'on':''}" data-b="${htmlEsc(b)}" role="button" tabindex="0">${htmlEsc(b)}</span>`).join('')||'<span class="hint">all brands</span>';
+  $$('#brandChips .chip').forEach(c=>c.onclick=()=>{const b=c.dataset.b; S.selBrands.has(b)?S.selBrands.delete(b):S.selBrands.add(b); c.classList.toggle('on');});
+}
+function scopedMeta(){
+  let m=S.metadata.slice();
+  if(S.selJobs.size){ const js=new Set([...S.selJobs].map(x=>x.toUpperCase()));
+    m=m.filter(r=>(r.jobs||[]).some(j=>js.has(String(j).toUpperCase()))); }
+  if(S.validation==='drift') m=m.filter(r=>r.validation_enabled);
+  else if(S.validation==='freeform') m=m.filter(r=>!r.validation_enabled);
+  if(S.search.trim()){ const q=S.search.trim().toLowerCase();
+    m=m.filter(r=>(r.attribute||'').toLowerCase().includes(q)||(r.column||'').toLowerCase().includes(q)); }
+  return m;
+}
+function rebuildAttrs(resetDefaults){
+  const m=scopedMeta();
+  const cols=m.map(r=>r.column);
+  if(resetDefaults){
+    const defs=m.filter(r=>r.validation_enabled).map(r=>r.column);
+    S.selAttrs=new Set((defs.length?defs:cols).slice(0,12));
+  }
+  const box=$('#attrBox');
+  box.innerHTML=m.map(r=>{
+    const on=S.selAttrs.has(r.column);
+    return `<label class="attr-item"><input type="checkbox" ${on?'checked':''} data-c="${htmlEsc(r.column)}"/>
+      <span class="nm" title="${htmlEsc(r.column)}">${htmlEsc(r.attribute||r.column)}</span>
+      <span class="rt">${htmlEsc(r.result_type||r.data_type||'')}</span></label>`;
+  }).join('')||'<div class="hint" style="padding:10px">No attributes match these filters.</div>';
+  $$('#attrBox input').forEach(i=>i.onchange=()=>{i.checked?S.selAttrs.add(i.dataset.c):S.selAttrs.delete(i.dataset.c); updAttrCount();});
+  updAttrCount();
+}
+function updAttrCount(){ $('#attrCount').textContent=`${S.selAttrs.size} selected · ${scopedMeta().length} available`; }
+
+// ============================== VIEWS ==============================
+function loading(msg='Querying Snowflake…'){ $('#view').innerHTML=`<div class="card"><div class="empty"><span class="loader"></span>${htmlEsc(msg)}</div></div>`; }
+function emptyCard(msg,ic='◇'){ return `<div class="empty"><div class="ic">${ic}</div><div>${msg}</div></div>`; }
+
+async function render(){
+  disposeCharts();
+  const v=$('#view');
+  v.classList.remove('anim'); void v.offsetWidth;
+  if(!S.live_ok){ v.innerHTML=`<div class="card">${emptyCard('Snowflake is not available. '+(S.error?('<br/><span class=\"mono\">'+htmlEsc(S.error)+'</span>'):''),'!')}</div>`; return; }
+  const t=S.tab;
+  loading();
+  try{
+    if(t==='live') await viewLive();
+    else if(t==='drift') await viewDrift();
+    else if(t==='spikes') await viewSpikes();
+    else if(t==='expected') await viewExpected();
+    else if(t==='metadata') await viewMetadata();
+    else if(t==='explorer') await viewExplorer();
+    v.classList.add('anim');
+  }catch(e){
+    v.innerHTML=`<div class="card">${emptyCard('Query failed:<br/><span class="mono">'+htmlEsc(e.message)+'</span>','!')}</div>`;
+  }
+}
+
+// ---------- LIVE ----------
+async function viewLive(){
+  const d=await api('/api/live');
+  if(d.error){ $('#view').innerHTML=`<div class="card">${emptyCard(htmlEsc(d.error),'!')}</div>`; return; }
+  const k=d.kpis||{}, del=d.deltas||{};
+  if(k.latest_interaction){ const lp=$('#latestPill'); if(lp) lp.textContent='Latest '+new Date(k.latest_interaction).toLocaleString(); }
+  const stale=k.days_stale; const fresh = stale==null?'':(stale<=0?'current':stale+'d behind');
+  function deltaHtml(v){ const s=fmtPctSigned(v); if(s==null) return `<span class="delta flat">— vs prev</span>`;
+    const cls=v>0?'up':(v<0?'down':'flat'); return `<span class="delta ${cls}">${v>0?'▲':(v<0?'▼':'•')} ${s} vs prev</span>`; }
+  const cells=[
+    {l:'Rows',v:fmtInt(k.rows),d:deltaHtml(del.rows)},
+    {l:'Connections',v:fmtInt(k.connections),d:deltaHtml(del.connections)},
+    {l:'Jobs',v:fmtInt(k.jobs),d:''},
+    {l:'Brands',v:fmtInt(k.brands),d:''},
+    {l:'Latest',v:k.latest_interaction?new Date(k.latest_interaction).toLocaleDateString():'—',
+      d:`<span class="delta ${stale>1?'down':'flat'}">${fresh}</span>`},
+  ].map(c=>`<div class="stat"><div class="label">${c.l}</div><div class="val">${c.v}</div><div class="delta-slot">${c.d}</div></div>`).join('');
+
+  $('#view').innerHTML=`
+    <div class="card stat-strip" style="margin-bottom:14px">${cells}</div>
+    <div class="grid row2" style="margin-bottom:14px">
+      <div class="card"><h3>Interaction Volume <span class="ch-sub" style="margin:0">per ${S.grain}</span></h3><div class="ch-sub">Rows processed over the selected window.</div><div id="chVol" class="chart"></div></div>
+      <div class="card"><h3>Pipeline Health</h3><div class="ch-sub">Blend of attribute coverage (60%) and data recency (40%).</div><div id="chGauge" class="chart"></div></div>
+    </div>
+    <div class="grid row2" style="margin-bottom:14px">
+      <div class="card"><h3>Volume by Job</h3><div class="ch-sub">Top jobs in window.</div><div id="chJob" class="chart sm"></div></div>
+      <div class="card"><h3>Volume by Brand</h3><div class="ch-sub">Top brands in window.</div><div id="chBrand" class="chart sm"></div></div>
+    </div>
+    <div class="card"><h3>Attribute Coverage <span class="ch-sub" style="margin:0">${(d.quality||[]).length} attrs</span></h3>
+      <div class="ch-sub">Populated vs blank rate for selected attributes. True/False shown for booleans.</div>
+      <div class="tbl-wrap" id="qualTbl"></div></div>`;
+
+  // volume
+  const vc=mkChart($('#chVol'));
+  vc.setOption(Object.assign(baseOpt(),{
+    grid:{left:10,right:14,top:16,bottom:22,containLabel:true},legend:{show:false},
+    xAxis:Object.assign({type:'category',data:(d.volume||[]).map(r=>r.PERIOD)},AXIS),
+    yAxis:Object.assign({type:'value'},AXIS),
+    series:[{type:'line',smooth:true,showSymbol:false,data:(d.volume||[]).map(r=>r.ROW_COUNT),
+      lineStyle:{width:2,color:'#4d9fff'},
+      areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(77,159,255,0.28)'},{offset:1,color:'rgba(77,159,255,0.0)'}])}}]
+  }));
+  // gauge
+  const g=mkChart($('#chGauge'));
+  const sc=Math.round((d.health?.score||0)*100);
+  const gcolor = sc>=80?'#34d399':sc>=60?'#fbbf24':'#f87171';
+  g.setOption({series:[{type:'gauge',startAngle:210,endAngle:-30,min:0,max:100,radius:'92%',center:['50%','58%'],
+    progress:{show:true,width:12,roundCap:true,itemStyle:{color:gcolor}},
+    axisLine:{lineStyle:{width:12,color:[[1,'rgba(255,255,255,0.08)']]}},
+    pointer:{show:false},axisTick:{show:false},splitLine:{show:false},axisLabel:{show:false},
+    anchor:{show:false},
+    detail:{valueAnimation:true,fontSize:34,fontWeight:700,offsetCenter:[0,'-2%'],color:'#f2f4f7',
+      fontFamily:'-apple-system,Segoe UI,Inter,sans-serif',formatter:'{value}'},
+    title:{offsetCenter:[0,'28%'],color:'#6e7883',fontSize:11,fontWeight:600},
+    data:[{value:sc,name:'HEALTH SCORE'}]}]});
+  // job/brand bars
+  function bar(el,rows,color){
+    const c=mkChart(el); const data=(rows||[]).slice().reverse();
+    c.setOption(Object.assign(baseOpt(),{grid:{left:8,right:26,top:8,bottom:6,containLabel:true},legend:{show:false},
+      tooltip:Object.assign({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}}},TOOLTIP),
+      xAxis:Object.assign({type:'value'},AXIS),
+      yAxis:Object.assign({type:'category',data:data.map(r=>r.VALUE)},AXIS,{axisLabel:{color:'#aeb7c2',fontSize:11,width:120,overflow:'truncate'},splitLine:{show:false}}),
+      series:[{type:'bar',data:data.map(r=>r.ROW_COUNT),barWidth:'58%',barMaxWidth:22,
+        itemStyle:{borderRadius:[0,4,4,0],color:color}}]}));
+  }
+  bar($('#chJob'),d.by_job,'#4d9fff');
+  bar($('#chBrand'),d.by_brand,'#22d3ee');
+  // quality table
+  const q=(d.quality||[]).slice().sort((a,b)=>(b.populated_rate||0)-(a.populated_rate||0));
+  $('#qualTbl').innerHTML = q.length? `<table><thead><tr>
+    <th>Attribute</th><th>Type</th><th class="num">Rows</th><th style="width:170px">Populated</th><th class="num">Blank</th><th class="num">True</th><th class="num">False</th></tr></thead><tbody>
+    ${q.map(r=>`<tr><td class="mono">${htmlEsc(r.attribute)}</td><td style="color:var(--txt-2)">${htmlEsc(r.data_type||'')}</td><td class="num">${fmtInt(r.total_rows)}</td>
+      <td><div style="display:flex;align-items:center;gap:9px"><div class="bar" style="flex:1"><i style="width:${Math.round((r.populated_rate||0)*100)}%"></i></div><span style="width:44px;text-align:right;font-variant-numeric:tabular-nums">${fmtPct(r.populated_rate)}</span></div></td>
+      <td class="num">${fmtPct(r.blank_rate)}</td><td class="num">${r.true_rate==null?'—':fmtPct(r.true_rate)}</td><td class="num">${r.false_rate==null?'—':fmtPct(r.false_rate)}</td></tr>`).join('')}
+    </tbody></table>` : emptyCard('Select attributes in the sidebar to see coverage.');
+}
+
+// ---------- DRIFT ----------
+let DRIFT_METRIC='populated_rate';
+async function viewDrift(){
+  const d=await api('/api/drift');
+  const series=d.series||[];
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="toolbar"><div class="left"><b>Attribute coverage over time</b> — track populated, blank, or true-rate trends to catch silent prompt or model drift.</div>
+        <div class="mini" id="driftMetric" role="group" aria-label="Drift metric">
+          <button data-m="populated_rate" class="on">Populated</button>
+          <button data-m="blank_rate">Blank</button>
+          <button data-m="true_rate">True rate</button></div></div>
+      <div id="chDrift" class="chart lg"></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Latest-period snapshot</h3><div class="ch-sub">Most recent period per attribute with period-over-period change.</div><div class="tbl-wrap" id="driftTbl"></div></div>`;
+  $$('#driftMetric button').forEach(b=>b.onclick=()=>{DRIFT_METRIC=b.dataset.m;$$('#driftMetric button').forEach(x=>x.classList.remove('on'));b.classList.add('on');drawDrift(series);drawDriftTbl(series);});
+  if(!series.length){ $('#chDrift').outerHTML=emptyCard('Select attributes to chart drift.'); $('#driftTbl').innerHTML=''; return; }
+  drawDrift(series); drawDriftTbl(series);
+}
+function drawDrift(series){
+  const attrs=[...new Set(series.map(r=>r.attribute))];
+  const periods=[...new Set(series.map(r=>r.period))].sort();
+  const c=mkChart($('#chDrift'));
+  const ser=attrs.map(a=>{const m=new Map(series.filter(r=>r.attribute===a).map(r=>[r.period,r[DRIFT_METRIC]]));
+    return {name:a,type:'line',smooth:true,showSymbol:false,connectNulls:true,lineStyle:{width:1.8},
+      data:periods.map(p=>{const v=m.get(p); return v==null?null:+(v*100).toFixed(2);})};});
+  c.setOption(Object.assign(baseOpt(),{
+    xAxis:Object.assign({type:'category',data:periods},AXIS),
+    yAxis:Object.assign({type:'value',axisLabel:{formatter:'{value}%',color:'#8b95a1',fontSize:11}},AXIS),
+    tooltip:Object.assign({trigger:'axis',valueFormatter:v=>v==null?'—':v+'%'},TOOLTIP),
+    series:ser}));
+}
+function drawDriftTbl(series){
+  const attrs=[...new Set(series.map(r=>r.attribute))];
+  const rows=attrs.map(a=>{const rs=series.filter(r=>r.attribute===a).sort((x,y)=>x.period<y.period?-1:1);
+    const last=rs[rs.length-1],prev=rs[rs.length-2];
+    const lv=last?last[DRIFT_METRIC]:null, pv=prev?prev[DRIFT_METRIC]:null;
+    return {a,last:last?.period,lv,delta:(lv!=null&&pv!=null)?lv-pv:null,rows:last?.total_rows};
+  }).sort((x,y)=>(y.lv||0)-(x.lv||0));
+  $('#driftTbl').innerHTML=`<table><thead><tr><th>Attribute</th><th>Latest period</th><th class="num">Rows</th><th class="num">${DRIFT_METRIC.replace('_',' ')}</th><th class="num">Δ vs prev</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td class="mono">${htmlEsc(r.a)}</td><td style="color:var(--txt-2)">${htmlEsc(r.last||'')}</td><td class="num">${fmtInt(r.rows)}</td><td class="num">${fmtPct(r.lv)}</td>
+    <td class="num">${r.delta==null?'—':`<span class="delta ${r.delta>0.0005?'up':r.delta<-0.0005?'down':'flat'}">${(r.delta>=0?'+':'')+(r.delta*100).toFixed(2)}pp</span>`}</td></tr>`).join('')}</tbody></table>`;
+}
+
+// ---------- VALUE SPIKES ----------
+let SPIKE_ATTR=null;
+async function viewSpikes(){
+  const d=await api('/api/value-spikes');
+  const dist=d.distribution||[], pos=d.positive||[];
+  const attrs=[...new Set(dist.map(r=>r.attribute))];
+  if(!SPIKE_ATTR||!attrs.includes(SPIKE_ATTR)) SPIKE_ATTR=attrs[0]||null;
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="toolbar"><div class="left"><b>Value distribution over time</b> — expected outputs stay separate; unexpected values collapse into <b>Other</b>.</div>
+        <select class="field" id="spikeSel" style="width:auto;min-width:220px" aria-label="Attribute">${attrs.map(a=>`<option ${a===SPIKE_ATTR?'selected':''}>${htmlEsc(a)}</option>`).join('')}</select></div>
+      <div id="chSpike" class="chart lg"></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Positive Flag Rate</h3><div class="ch-sub">Share of calls with value <span class="mono">1</span> per period, across boolean and text-presence attributes.</div><div id="chPos" class="chart"></div></div>`;
+  if(!attrs.length){ $('#chSpike').outerHTML=emptyCard('Select attributes to inspect value distributions.'); }
+  else{
+    $('#spikeSel').onchange=e=>{SPIKE_ATTR=e.target.value;drawSpike(dist);};
+    drawSpike(dist);
+  }
+  drawPos(pos);
+}
+function drawSpike(dist){
+  const rows=dist.filter(r=>r.attribute===SPIKE_ATTR);
+  const periods=[...new Set(rows.map(r=>r.period))].sort();
+  const buckets=[...new Set(rows.map(r=>r.bucket))];
+  buckets.sort((a,b)=>{const rank=x=>x==='Other'?2:x==='<BLANK>'?1:0; return rank(a)-rank(b)||a.localeCompare(b);});
+  const totals=Object.fromEntries(periods.map(p=>[p,rows.filter(r=>r.period===p).reduce((s,r)=>s+r.row_count,0)]));
+  const colorFor=b=> b==='Other'?'#4b5563': b==='<BLANK>'?'#374151': null;
+  const ser=buckets.map((b,i)=>{const m=new Map(rows.filter(r=>r.bucket===b).map(r=>[r.period,r.row_count]));
+    return {name:b,type:'bar',stack:'v',data:periods.map(p=>{const c=m.get(p)||0; return totals[p]?+(c/totals[p]*100).toFixed(2):0;}),
+      itemStyle:colorFor(b)?{color:colorFor(b)}:{}};});
+  const c=mkChart($('#chSpike'));
+  c.setOption(Object.assign(baseOpt(),{
+    xAxis:Object.assign({type:'category',data:periods},AXIS),
+    yAxis:Object.assign({type:'value',max:100,axisLabel:{formatter:'{value}%',color:'#8b95a1',fontSize:11}},AXIS),
+    tooltip:Object.assign({trigger:'axis',valueFormatter:v=>v+'%'},TOOLTIP),
+    series:ser}));
+}
+function drawPos(pos){
+  const attrs=[...new Set(pos.map(r=>r.attribute))];
+  const periods=[...new Set(pos.map(r=>r.period))].sort();
+  if(!attrs.length){ $('#chPos').outerHTML=emptyCard('No boolean or text-presence attributes selected.'); return; }
+  const ser=attrs.map(a=>{const m=new Map(pos.filter(r=>r.attribute===a).map(r=>[r.period,r.positive_rate]));
+    return {name:a,type:'line',smooth:true,showSymbol:false,connectNulls:true,lineStyle:{width:1.8},
+      data:periods.map(p=>{const v=m.get(p); return v==null?null:+(v*100).toFixed(3);})};});
+  const c=mkChart($('#chPos'));
+  c.setOption(Object.assign(baseOpt(),{
+    xAxis:Object.assign({type:'category',data:periods},AXIS),
+    yAxis:Object.assign({type:'value',axisLabel:{formatter:'{value}%',color:'#8b95a1',fontSize:11}},AXIS),
+    tooltip:Object.assign({trigger:'axis',valueFormatter:v=>v==null?'—':v+'%'},TOOLTIP),
+    series:ser}));
+}
+
+// ---------- EXPECTED OUTPUT DRIFT ----------
+let EXP_UNEXP={}, EXP_ATTR=null, EXP_MIN=0, EXP_DATA=null;
+async function viewExpected(){
+  EXP_DATA=await api('/api/expected-drift');
+  drawExpected();
+}
+function drawExpected(){
+  disposeCharts();
+  const d=EXP_DATA||{};
+  const sum=d.summary||[];
+  EXP_UNEXP=d.unexpected||{};
+  if(!sum.length){ $('#view').innerHTML=`<div class="card">${emptyCard(htmlEsc(d.note||'No drift-eligible attributes in this selection. Switch the sidebar filter to “Drift-eligible attrs”.'))}</div>`; return; }
+  const allAttrs=[...new Set(sum.map(r=>r.attribute))];
+  const periods=[...new Set(sum.map(r=>r.period))].sort();
+  const latestAll=allAttrs.map(a=>{const rs=sum.filter(r=>r.attribute===a).sort((x,y)=>x.period<y.period?-1:1); return rs[rs.length-1];});
+  // min-unexpected-% threshold: keep attrs whose latest-period unexpected rate meets it
+  const kept=new Set(latestAll.filter(r=>(r.unexpected_rate*100)>=EXP_MIN-1e-9).map(r=>r.attribute));
+  const attrs=allAttrs.filter(a=>kept.has(a));
+  const latest=latestAll.filter(r=>kept.has(r.attribute)).sort((x,y)=>y.unexpected_rate-x.unexpected_rate);
+  const unexpAttrs=Object.keys(EXP_UNEXP).filter(a=>kept.has(a)&&(EXP_UNEXP[a].unexpected_rows||0)>0)
+    .sort((a,b)=>EXP_UNEXP[b].unexpected_rows-EXP_UNEXP[a].unexpected_rows);
+  if(!EXP_ATTR||!unexpAttrs.includes(EXP_ATTR)) EXP_ATTR=unexpAttrs[0]||null;
+
+  const minCtl=`<label class="minctl" for="minUnexpInput">Min unexpected %
+    <input type="number" class="field" id="minUnexpInput" min="0" max="100" step="0.5" value="${EXP_MIN}" aria-label="Minimum unexpected rate percent"/></label>`;
+
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="toolbar"><div class="left"><b>Unexpected-output rate over time</b> — ${attrs.length} of ${allAttrs.length} attributes at or above ${EXP_MIN}% unexpected in the latest period.</div>
+        ${minCtl}</div>
+      ${attrs.length?'<div id="chExp" class="chart lg"></div>':emptyCard('No attributes have an unexpected rate ≥ '+EXP_MIN+'% in the latest period. Lower the threshold to see more.')}
+    </div>
+    ${attrs.length?`
+    <div class="card" style="margin-top:14px"><h3>Latest-period validation snapshot</h3>
+      <div class="ch-sub">Severity: High ≥ 5% · Medium ≥ 1% · Low &gt; 0 unexpected. Click a row to inspect its unexpected values below.</div>
+      <div class="tbl-wrap" id="expTbl"></div></div>
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar"><div class="left"><b>Unexpected output values</b> — actual values that fell outside the expected set, with counts for the whole window.</div>
+        <select class="field" id="unexpSel" style="width:auto;min-width:230px" aria-label="Attribute">${unexpAttrs.map(a=>`<option ${a===EXP_ATTR?'selected':''}>${htmlEsc(a)}</option>`).join('')}</select></div>
+      <div class="grid row2"><div id="chUnexp" class="chart sm"></div><div class="tbl-wrap" id="unexpTbl" style="max-height:280px"></div></div>
+    </div>`:''}`;
+
+  const mi=$('#minUnexpInput');
+  mi.onchange=e=>{EXP_MIN=Math.min(100,Math.max(0,parseFloat(e.target.value)||0));drawExpected();};
+  if(!attrs.length) return;
+
+  const c=mkChart($('#chExp'));
+  const ser=attrs.map(a=>{const m=new Map(sum.filter(r=>r.attribute===a).map(r=>[r.period,r.unexpected_rate]));
+    return {name:a,type:'line',smooth:true,showSymbol:false,connectNulls:true,lineStyle:{width:1.8},
+      data:periods.map(p=>{const v=m.get(p); return v==null?null:+(v*100).toFixed(3);})};});
+  c.setOption(Object.assign(baseOpt(),{
+    xAxis:Object.assign({type:'category',data:periods},AXIS),
+    yAxis:Object.assign({type:'value',axisLabel:{formatter:'{value}%',color:'#8b95a1',fontSize:11}},AXIS),
+    tooltip:Object.assign({trigger:'axis',valueFormatter:v=>v==null?'—':v+'%'},TOOLTIP),
+    series:ser}));
+  $('#expTbl').innerHTML=`<table><thead><tr><th>Attribute</th><th>Period</th><th class="num">Rows</th><th class="num">Unexpected</th><th class="num">Blank</th><th>Severity</th><th>Expected set</th></tr></thead><tbody>
+    ${latest.map(r=>`<tr data-a="${htmlEsc(r.attribute)}" style="cursor:pointer"><td class="mono">${htmlEsc(r.attribute)}</td><td style="color:var(--txt-2)">${htmlEsc(r.period)}</td><td class="num">${fmtInt(r.total_rows)}</td>
+      <td class="num">${fmtPct(r.unexpected_rate,2)} <span class="hint" style="margin:0">(${fmtInt(r.unexpected_rows)})</span></td>
+      <td class="num">${fmtPct(r.blank_rate)}</td><td><span class="sev ${htmlEsc(r.severity)}">${htmlEsc(r.severity)}</span></td>
+      <td class="hint" style="margin:0;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${htmlEsc(r.expected_outputs)}">${htmlEsc(r.expected_outputs||'—')}</td></tr>`).join('')}</tbody></table>`;
+  $$('#expTbl tr[data-a]').forEach(tr=>tr.onclick=()=>{const a=tr.dataset.a; if(EXP_UNEXP[a]&&EXP_UNEXP[a].unexpected_rows>0){EXP_ATTR=a; const sel=$('#unexpSel'); if(sel) sel.value=a; drawUnexp();}});
+  const sel=$('#unexpSel'); if(sel) sel.onchange=e=>{EXP_ATTR=e.target.value;drawUnexp();};
+  drawUnexp();
+}
+function drawUnexp(){
+  const box=EXP_UNEXP[EXP_ATTR];
+  if(!box||!box.values||!box.values.length){
+    $('#unexpTbl').innerHTML=emptyCard('No unexpected values for this attribute in the window — every value matched the expected set.','✓');
+    const el=$('#chUnexp'); if(el) el.innerHTML='';
+    return;
+  }
+  const vals=box.values.slice(0,40);
+  const label=v=>v.is_blank?'<BLANK>':(v.value.length>40?v.value.slice(0,40)+'…':v.value);
+  $('#unexpTbl').innerHTML=`<div class="ch-sub" style="padding:8px 12px 6px;margin:0">${htmlEsc(EXP_ATTR)} · ${fmtInt(box.unexpected_rows)} unexpected of ${fmtInt(box.total_rows)} rows · ${box.distinct_unexpected} distinct value${box.distinct_unexpected===1?'':'s'}</div>
+    <table><thead><tr><th>Unexpected value</th><th class="num">Count</th><th class="num">% of calls</th></tr></thead><tbody>
+    ${vals.map(v=>`<tr><td class="${v.is_blank?'':'mono'}" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${htmlEsc(v.value)}">${v.is_blank?'<span class="hint" style="margin:0">∅ &lt;BLANK&gt;</span>':htmlEsc(label(v))}</td>
+      <td class="num">${fmtInt(v.count)}</td><td class="num">${fmtPct(v.share,2)}</td></tr>`).join('')}</tbody></table>`;
+  const top=vals.slice(0,15).slice().reverse();
+  const c=mkChart($('#chUnexp'));
+  c.setOption(Object.assign(baseOpt(),{grid:{left:8,right:28,top:8,bottom:6,containLabel:true},legend:{show:false},
+    tooltip:Object.assign({trigger:'axis',axisPointer:{type:'shadow',shadowStyle:{color:'rgba(255,255,255,0.04)'}}},TOOLTIP),
+    xAxis:Object.assign({type:'value'},AXIS),
+    yAxis:Object.assign({type:'category',data:top.map(v=>v.is_blank?'<BLANK>':(v.value.length>22?v.value.slice(0,22)+'…':v.value))},AXIS,{axisLabel:{color:'#aeb7c2',fontSize:11,width:130,overflow:'truncate'},splitLine:{show:false}}),
+    series:[{type:'bar',data:top.map(v=>v.count),barWidth:'58%',barMaxWidth:22,
+      itemStyle:{borderRadius:[0,4,4,0],color:'#f87171'}}]}));
+}
+
+// ---------- METADATA ----------
+async function viewMetadata(){
+  const d=await api('/api/metadata');
+  const rows=d.rows||[];
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="toolbar"><div class="left"><b>${rows.length}</b> attributes · source <span class="mono">${htmlEsc(d.source||'')}</span></div>
+        <input class="field" id="mSearch" placeholder="Filter attributes or prompts…" style="width:280px" aria-label="Filter attributes"/></div>
+      <div class="tbl-wrap" id="mTbl"></div></div>`;
+  const draw=q=>{
+    const f=q?rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q.toLowerCase())):rows;
+    $('#mTbl').innerHTML=`<table><thead><tr><th>Attribute</th><th>Type</th><th>Jobs</th><th>Drift</th><th>Expected outputs</th><th>In table</th></tr></thead><tbody>
+      ${f.map(r=>`<tr><td><div class="mono">${htmlEsc(r.attribute)}</div><div class="hint" style="margin:0;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${htmlEsc(r.prompt||'')}">${htmlEsc(r.description||r.prompt||'')}</div></td>
+        <td style="color:var(--txt-2)">${htmlEsc(r.result_type)}</td><td class="hint" style="margin:0">${htmlEsc(r.jobs)}</td>
+        <td>${r.validation_enabled?'<span class="tag">drift</span>':'<span class="hint" style="margin:0">—</span>'}</td>
+        <td class="hint" style="margin:0;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${htmlEsc(r.expected_display)}">${htmlEsc(r.expected_display||'—')}</td>
+        <td>${r.in_table?'<span class="dot g"></span>':'<span class="dot r"></span>'}</td></tr>`).join('')}</tbody></table>`;
+  };
+  draw('');
+  $('#mSearch').oninput=e=>draw(e.target.value);
+}
+
+// ---------- EXPLORER ----------
+async function viewExplorer(){
+  const d=await api('/api/explorer',{limit:'150'});
+  const cols=d.columns||[], rows=d.rows||[];
+  $('#view').innerHTML=`
+    <div class="card">
+      <div class="toolbar"><div class="left"><b>${rows.length}</b> most-recent rows · selected attributes + key dimensions.</div>
+        <div class="mini"><button id="csvBtn">⤓ Download CSV</button></div></div>
+      <div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th>${htmlEsc(c)}</th>`).join('')}</tr></thead><tbody>
+        ${rows.map(r=>`<tr>${r.map((v,i)=>`<td class="${i===0?'mono':''}" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v==null?'':htmlEsc(v)}">${v==null?'<span class="hint" style="margin:0">∅</span>':htmlEsc(v)}</td>`).join('')}</tr>`).join('')}
+      </tbody></table></div></div>`;
+  $('#csvBtn').onclick=()=>{
+    const esc=v=>{
+      if(v==null)return '';
+      let text=String(v);if(/^[=+\-@]/.test(text.trimStart()))text="'"+text;
+      return /[",\n]/.test(text)?'"'+text.replace(/"/g,'""')+'"':text;
+    };
+    const csv=[cols.map(esc).join(',')].concat(rows.map(r=>r.map(esc).join(','))).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download='optic_sample.csv'; a.click();
+  };
+}
+
+// ============================== WIRING ==============================
+function refreshRangeUi(){setRangeLabel();renderHero({live_ok:S.live_ok,source_table:S.source});}
+$$('#rangeSeg button').forEach(b=>b.onclick=()=>{
+  $$('#rangeSeg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  const v=b.dataset.d;
+  if(v==='custom'){
+    S.rangeMode='custom';
+    if(!S.customStart||!S.customEnd){
+      const iso=d=>d.toISOString().slice(0,10);
+      const end=new Date(); const start=new Date(); start.setDate(end.getDate()-S.rangeDays);
+      S.customStart=iso(start); S.customEnd=iso(end);
+    }
+    $('#startDate').value=S.customStart; $('#endDate').value=S.customEnd;
+    $('#customRange').style.display='flex';
+  }else{
+    S.rangeMode='preset'; S.rangeDays=+v;
+    $('#customRange').style.display='none';
+  }
+  refreshRangeUi();
+});
+$('#startDate').onchange=e=>{if(e.target.value){S.customStart=e.target.value;refreshRangeUi();}};
+$('#endDate').onchange=e=>{if(e.target.value){S.customEnd=e.target.value;refreshRangeUi();}};
+$('#d1Toggle').onchange=e=>{S.d1=e.target.checked;refreshRangeUi();};
+$('#grainSel').onchange=e=>{S.grain=e.target.value;};
+$('#validationSel').onchange=e=>{S.validation=e.target.value;rebuildAttrs(true);};
+$('#attrSearch').oninput=e=>{S.search=e.target.value;rebuildAttrs(false);};
+$('#attrAll').onclick=()=>{scopedMeta().forEach(r=>S.selAttrs.add(r.column));rebuildAttrs(false);};
+$('#attrNone').onclick=()=>{S.selAttrs.clear();rebuildAttrs(false);};
+$('#applyBtn').onclick=()=>render();
+$('#refreshBtn').onclick=async()=>{await fetch('/api/clear-cache');render();};
+$$('#tabs .tab').forEach(t=>{
+  const activate=()=>{
+    $$('#tabs .tab').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-selected','false');});
+    t.classList.add('on');t.setAttribute('aria-selected','true');
+    S.tab=t.dataset.t;render();
+  };
+  t.onclick=activate;
+  t.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();activate();}};
+});
+// filters drawer (narrow viewports)
+const ft=$('#filtersToggle'); if(ft) ft.onclick=()=>document.body.classList.toggle('filters-open');
+const sc=$('#scrim'); if(sc) sc.onclick=()=>document.body.classList.remove('filters-open');
+
+boot();
+</script>
+</body>
+</html>

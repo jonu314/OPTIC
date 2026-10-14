@@ -8,3 +8,4 @@ __pycache__/
 .docker/
 .venv/
 iguazio.env
+optic_streamlit_dashboard/model_lab_runs/

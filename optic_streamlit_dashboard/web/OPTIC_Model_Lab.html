@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>OPTIC Model Lab</title>
+<script src="/vendor/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f7fb;--panel:#fff;--panel2:#f8fafc;--text:#142033;--muted:#64748b;
+    --line:#dbe4ef;--brand:#2156d8;--brand2:#6d3ed1;--brand-soft:#edf3ff;
+    --good:#087f5b;--warn:#b56200;--bad:#c92a2a;--shadow:0 14px 42px rgba(36,58,91,.09);
+    --radius:16px;--mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;
+    --font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  html[data-theme="dark"]{
+    --bg:#0d1421;--panel:#121d2d;--panel2:#172437;--text:#edf4ff;--muted:#9bacc2;
+    --line:#2a3a50;--brand:#79a6ff;--brand2:#b594ff;--brand-soft:#182b4d;
+    --good:#59d5a5;--warn:#ffc26b;--bad:#ff8c8c;--shadow:0 18px 46px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);
+    font-family:var(--font);font-size:14px;line-height:1.45}
+  button,input,select{font:inherit;color:inherit}button,a{touch-action:manipulation}
+  :focus-visible{outline:3px solid color-mix(in srgb,var(--brand) 40%,transparent);outline-offset:2px}
+  .top{position:sticky;top:0;z-index:30;height:64px;display:flex;align-items:center;gap:14px;
+    padding:0 max(18px,calc((100vw - 1500px)/2));background:color-mix(in srgb,var(--panel) 90%,transparent);
+    border-bottom:1px solid var(--line);backdrop-filter:blur(16px)}
+  .logo{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--text)}
+  .mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:850;
+    background:linear-gradient(135deg,#2156d8,#7b3fe4);box-shadow:0 6px 16px rgba(45,81,190,.24)}
+  .brand-title{font-size:15px;font-weight:800;letter-spacing:-.02em}.tag{font-size:10px;color:var(--muted);
+    border:1px solid var(--line);padding:2px 7px;border-radius:99px;text-transform:uppercase;letter-spacing:.08em}
+  .top-spacer{flex:1}.top-link,.icon-btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);
+    text-decoration:none;border-radius:9px;padding:7px 11px;font-weight:650;font-size:12px;cursor:pointer}
+  .shell{width:min(1500px,100%);margin:0 auto;padding:26px 20px 70px}
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;margin:8px 0 24px}
+  h1{margin:0;font-size:clamp(28px,4vw,47px);line-height:1.02;letter-spacing:-.045em}
+  .hero p{margin:12px 0 0;color:var(--muted);font-size:15px;max-width:780px}
+  .truth-key{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.pill{display:inline-flex;align-items:center;
+    gap:6px;padding:5px 9px;border:1px solid var(--line);border-radius:99px;background:var(--panel);
+    color:var(--muted);font-size:11px;font-weight:700}.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .dot.human{background:var(--good)}.dot.ai{background:var(--brand2)}.dot.proxy{background:var(--warn)}
+  .notice{display:none;margin:0 0 18px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--panel);box-shadow:var(--shadow)}.notice.on{display:flex;gap:10px;align-items:flex-start}
+  .notice.error{border-color:color-mix(in srgb,var(--bad) 50%,var(--line));color:var(--bad)}
+  .setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:20px;min-width:0}.step-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:17px}
+  .step-num{width:29px;height:29px;border-radius:9px;display:grid;place-items:center;flex:none;
+    background:var(--brand-soft);color:var(--brand);font-weight:850}.step-head h2{font-size:16px;margin:1px 0 2px}
+  .step-head p,.sub{margin:0;color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  label.field{display:grid;gap:6px;font-size:11px;font-weight:750;color:var(--muted);text-transform:uppercase;letter-spacing:.045em}
+  input,select{width:100%;border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:9px 10px;
+    min-height:40px;text-transform:none;letter-spacing:normal;font-weight:500}
+  .mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px}
+  .mode-option{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel2);cursor:pointer}
+  .mode-option.on{border-color:var(--brand);background:var(--brand-soft)}.mode-option strong{display:block;font-size:12px}
+  .mode-option span{font-size:11px;color:var(--muted)}
+  .model-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .model-group{grid-column:1/-1;margin-top:5px;color:var(--muted);font-size:10px;font-weight:850;
+    text-transform:uppercase;letter-spacing:.07em}.model-group:first-child{margin-top:0}
+  .check-card{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:10px;
+    padding:10px;background:var(--panel2);cursor:pointer;min-width:0}.check-card.on{border-color:var(--brand);
+    background:var(--brand-soft)}.check-card input{width:16px;min-height:0;margin:0}.model-copy{display:flex;
+    align-items:center;justify-content:space-between;gap:8px;min-width:0;flex:1}.model-name{font-family:var(--mono);
+    font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.model-badge{flex:none;padding:2px 5px;
+    border-radius:5px;background:var(--brand-soft);color:var(--brand);font-size:8px;font-weight:850;
+    text-transform:uppercase;letter-spacing:.04em}.model-badge.candidate{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .attr-tools{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;margin-bottom:10px}
+  .btn{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:9px 12px;cursor:pointer;
+    font-weight:750;font-size:12px}.btn:hover{border-color:var(--brand)}.btn.primary{border-color:transparent;
+    color:#fff;background:linear-gradient(135deg,#2156d8,#6539ce);box-shadow:0 8px 20px rgba(44,78,188,.22)}
+  .btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,var(--line))}
+  .btn:disabled{opacity:.48;cursor:not-allowed;box-shadow:none}.attr-list{height:340px;overflow:auto;border:1px solid var(--line);
+    border-radius:11px;background:var(--panel2)}.attr-row{display:grid;grid-template-columns:20px minmax(0,1fr) auto;
+    gap:9px;align-items:start;padding:10px 11px;border-bottom:1px solid var(--line);cursor:pointer}
+  .attr-row:last-child{border:0}.attr-row:hover{background:var(--brand-soft)}.attr-row input{width:15px;min-height:0;margin:2px 0}
+  .attr-group{position:sticky;top:0;z-index:2;padding:7px 11px;background:var(--panel);border-bottom:1px solid var(--line);
+    color:var(--muted);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.07em}
+  .attr-name{font-family:var(--mono);font-size:11px;font-weight:750}.attr-desc{font-size:11px;color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.type{font-size:9px;font-weight:850;color:var(--brand);
+    padding:3px 6px;border-radius:6px;background:var(--brand-soft);white-space:nowrap}
+  .selected-count{color:var(--brand);font-weight:800}.judge-box{display:grid;gap:11px}.switchline{display:flex;align-items:center;
+    gap:10px}.switchline input{width:18px;min-height:0}.estimate{border:1px solid var(--line);background:var(--panel2);
+    border-radius:12px;padding:13px;display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}
+  .estimate strong{display:block;font-size:19px;letter-spacing:-.03em}.estimate span{font-size:10px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em}.actions{display:flex;gap:9px;align-items:center;margin-top:14px;flex-wrap:wrap}
+  .judge-scope-panel{border:1px solid var(--line);border-radius:10px;background:var(--panel2);overflow:hidden}
+  .judge-scope-panel[hidden]{display:none}.judge-scope-head{padding:9px 11px;border-bottom:1px solid var(--line);
+    color:var(--muted);font-size:11px}.judge-attr-list{max-height:185px;overflow:auto}.judge-attr{display:grid;
+    grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 11px;
+    border-bottom:1px solid var(--line);cursor:pointer}.judge-attr:last-child{border:0}.judge-attr input{width:15px;
+    min-height:0;margin:0}.judge-attr code{overflow:hidden;text-overflow:ellipsis}.judge-attr em{font-size:9px;
+    color:var(--muted);font-style:normal}
+  .status-text{font-size:12px;color:var(--muted)}
+  .work{display:none;margin-top:18px}.work.on{display:block}.progress-card{display:grid;grid-template-columns:1fr 280px;gap:20px}
+  .progress-top{display:flex;justify-content:space-between;gap:14px}.progress-top h2{margin:0;font-size:20px}
+  .bar{height:12px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;margin:16px 0 9px}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .3s}
+  .progress-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:11px}.model-progress{display:grid;gap:8px;margin-top:15px}
+  .mp{display:grid;grid-template-columns:150px 1fr 55px;gap:9px;align-items:center;font-size:11px}.mp b{font-family:var(--mono);
+    overflow:hidden;text-overflow:ellipsis}.mini{height:6px;border-radius:9px;background:var(--panel2);overflow:hidden}.mini i{display:block;
+    height:100%;background:var(--brand)}.run-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fact{background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;padding:10px}.fact b{display:block;font-size:17px}.fact span{font-size:10px;color:var(--muted)}
+  .report{display:none;margin-top:18px}.report.on{display:block}.report-head{display:flex;align-items:flex-end;gap:14px;
+    justify-content:space-between;margin-bottom:13px}.report-head h2{margin:0;font-size:24px}.report-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .leader{padding:24px;background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 11%,var(--panel)),
+    color-mix(in srgb,var(--brand2) 9%,var(--panel)));border-color:color-mix(in srgb,var(--brand) 25%,var(--line))}
+  .leader-label{color:var(--brand);font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}
+  .leader h3{font-size:29px;letter-spacing:-.04em;margin:5px 0 4px}.leader p{margin:0;color:var(--muted)}
+  .tabs{display:flex;gap:5px;overflow:auto;margin:16px 0 12px;padding:5px;border:1px solid var(--line);
+    border-radius:11px;background:var(--panel)}.tab{white-space:nowrap;border:0;background:transparent;padding:8px 12px;
+    border-radius:7px;cursor:pointer;font-weight:750;font-size:11px;color:var(--muted)}.tab.on{background:var(--brand-soft);color:var(--brand)}
+  .tab-panel{display:none}.tab-panel.on{display:block}.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:12px}
+  .kpi{padding:15px}.kpi .label{font-size:10px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+  .kpi .value{font-size:24px;font-weight:850;letter-spacing:-.04em;margin-top:3px}.kpi .note{font-size:10px;color:var(--muted)}
+  .split{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr);gap:12px}.chart{height:340px}
+  .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;min-width:720px}th,td{padding:10px 11px;text-align:left;border-bottom:1px solid var(--line);
+    font-size:11px;vertical-align:top}th{position:sticky;top:0;background:var(--panel2);z-index:2;color:var(--muted);
+    font-size:9px;text-transform:uppercase;letter-spacing:.055em;cursor:pointer}tbody tr:hover{background:var(--brand-soft)}
+  td.mono{font-family:var(--mono)}.good{color:var(--good);font-weight:800}.warn{color:var(--warn);font-weight:800}
+  .bad{color:var(--bad);font-weight:800}.filters{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:9px;margin-bottom:10px}
+  .filters.two{grid-template-columns:repeat(2,minmax(150px,1fr))}
+  .empty{padding:35px;text-align:center;color:var(--muted)}.review-grid{display:grid;grid-template-columns:minmax(300px,.75fr) minmax(0,1.25fr);gap:12px}
+  .dispute-list{max-height:610px;overflow:auto}.dispute{width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);
+    background:var(--panel);padding:12px;cursor:pointer}.dispute.on,.dispute:hover{background:var(--brand-soft)}
+  .dispute b{display:block;font-family:var(--mono);font-size:11px}.dispute span{font-size:10px;color:var(--muted)}
+  .audit-note{margin-bottom:12px;border-left:4px solid var(--brand2)}.audit-grid{display:grid;
+    grid-template-columns:minmax(330px,.8fr) minmax(0,1.2fr);gap:12px}.audit-list{max-height:760px;overflow:auto}
+  .audit-list-head,.audit-item{display:grid;grid-template-columns:minmax(95px,.75fr) minmax(110px,1fr) 70px 82px;
+    gap:8px;align-items:center}.audit-list-head{padding:8px 11px;border-bottom:1px solid var(--line);background:var(--panel2);
+    color:var(--muted);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.05em;position:sticky;top:0;z-index:2}
+  .audit-item{width:100%;border:0;border-bottom:1px solid var(--line);padding:10px 11px;background:var(--panel);
+    text-align:left;cursor:pointer;font-size:10px}.audit-item:hover,.audit-item.on{background:var(--brand-soft)}
+  .audit-item code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.outcome{display:inline-flex;justify-content:center;
+    border-radius:99px;padding:3px 7px;font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;
+    background:var(--panel2);color:var(--muted)}.outcome.winner{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+  .outcome.tie,.outcome.uncertain{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .outcome.error{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+  .audit-detail h3{margin-top:0}.audit-section{border-top:1px solid var(--line);margin-top:14px;padding-top:13px}
+  .audit-section h4{margin:0 0 8px}.audit-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .audit-fact{border:1px solid var(--line);border-radius:9px;padding:9px;background:var(--panel2);min-width:0}
+  .audit-fact b{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .audit-fact span,.audit-fact code{display:block;margin-top:3px;font-size:11px;overflow-wrap:anywhere}
+  .judge-copy{border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--panel2);white-space:pre-wrap}
+  .candidate-judgment{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px}.correct{color:var(--good);
+    font-weight:800}.incorrect{color:var(--bad);font-weight:800}.unresolved{color:var(--warn);font-weight:800}
+  .transcript{white-space:pre-wrap;max-height:260px;overflow:auto;border:1px solid var(--line);background:var(--panel2);
+    border-radius:10px;padding:12px;font-size:11px;line-height:1.55}.output-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;margin:10px 0}.output{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--panel2)}
+  .output b{display:block;font-family:var(--mono);font-size:10px}.output code{display:block;margin-top:6px;font-family:var(--mono);
+    font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}.manual{border-top:1px solid var(--line);margin-top:13px;padding-top:13px}
+  .manual h4{margin:0 0 9px}.manual-fields{display:grid;grid-template-columns:180px minmax(0,1fr);gap:9px}.accept-list{display:flex;
+    flex-wrap:wrap;gap:7px;margin-top:9px}.accept-list label{display:flex;align-items:center;gap:5px;border:1px solid var(--line);
+    padding:6px 8px;border-radius:8px;font-family:var(--mono);font-size:10px}.accept-list input{width:14px;min-height:0}
+  .method{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.method h3{font-size:14px;margin:0 0 7px}
+  .method p,.method li{color:var(--muted);font-size:12px}.weights{display:grid;gap:7px}.weight{display:grid;
+    grid-template-columns:150px 1fr 45px;gap:9px;align-items:center;font-size:11px}.weight i{height:7px;background:var(--brand);
+    border-radius:9px}.history{margin-top:18px}.history h2{font-size:16px}.history-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .history-item{border:1px solid var(--line);border-radius:11px;padding:12px;background:var(--panel);cursor:pointer;text-align:left}
+  .history-item:hover{border-color:var(--brand)}.history-item b{display:block}.history-item span{font-size:10px;color:var(--muted)}
+  @media(max-width:1000px){.setup-grid,.split,.review-grid,.audit-grid,.progress-card{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}
+    .history-grid{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1fr}.truth-key{justify-content:flex-start}}
+  @media(max-width:660px){.shell{padding:18px 12px 50px}.top{padding:0 12px}.tag{display:none}.setup-grid,.fields,.method,.audit-facts{grid-template-columns:1fr}
+    .model-grid,.output-grid{grid-template-columns:1fr}.attr-tools{grid-template-columns:1fr 1fr}.attr-tools input{grid-column:1/-1}
+    .estimate,.kpis{grid-template-columns:1fr 1fr}.filters{grid-template-columns:1fr 1fr}.history-grid{grid-template-columns:1fr}
+    .audit-list-head,.audit-item{grid-template-columns:minmax(90px,.8fr) minmax(100px,1fr) 45px 68px}
+    .manual-fields{grid-template-columns:1fr}.report-head{align-items:flex-start;flex-direction:column}.top-link{display:none}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/model-lab" aria-label="OPTIC Model Lab home">
+    <span class="mark">OP</span><span class="brand-title">OPTIC Model Lab</span><span class="tag">Local</span>
+  </a>
+  <span class="top-spacer"></span>
+  <a class="top-link" href="/">Production Console</a>
+  <button class="icon-btn" id="themeButton" type="button" aria-label="Toggle color theme">Dark mode</button>
+</header>
+<main class="shell">
+  <section class="hero">
+    <div>
+      <h1>Compare extraction models<br>on identical calls.</h1>
+      <p>Reproducible transcript samples, matched attribute batches, transparent operational metrics,
+        optional blinded AI review, and local human adjudication.</p>
+    </div>
+    <div class="truth-key" aria-label="Evaluation label key">
+      <span class="pill"><i class="dot human"></i>Human reviewed</span>
+      <span class="pill"><i class="dot ai"></i>AI judged proxy</span>
+      <span class="pill"><i class="dot proxy"></i>Operational proxy</span>
+    </div>
+  </section>
+  <div class="notice" id="notice" role="status" aria-live="polite"></div>
+
+  <section class="setup-grid" id="setup">
+    <article class="card">
+      <div class="step-head"><span class="step-num">1</span><div><h2>Job and sample</h2>
+        <p>Active prompt, deterministic sample, and YTD window.</p></div></div>
+      <div class="mode-switch" id="modeSwitch"></div>
+      <div class="fields">
+        <label class="field" style="grid-column:1/-1">Active job prompt<select id="jobSelect"></select></label>
+        <label class="field">Start date<input id="startDate" type="date"></label>
+        <label class="field">End date<input id="endDate" type="date"></label>
+        <label class="field">Transcript sample (1–10,000)<input id="sampleSize" type="number" min="1" max="10000" step="1" inputmode="numeric" title="Whole-number transcript sample from 1 through 10,000"></label>
+        <label class="field">Reproducible seed<input id="seed" type="number" value="42"></label>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="step-head"><span class="step-num">2</span><div><h2>Candidate deployments</h2>
+        <p>Verified GPT deployments are labeled. Anthropic candidates depend on Odin gateway access.</p></div></div>
+      <div class="model-grid" id="modelGrid"></div>
+      <div class="actions">
+        <input id="customModel" placeholder="Validated custom deployment slug" aria-label="Custom model deployment">
+        <button class="btn" id="addModel" type="button">Add</button>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="step-head"><span class="step-num">3</span><div><h2>Active attributes</h2>
+        <p>Job order is preserved. Requests are capped at 20 attributes.</p></div></div>
+      <div class="attr-tools">
+        <input id="attrSearch" type="search" placeholder="Search name, instruction, group...">
+        <button class="btn" id="selectVisible" type="button">Select visible</button>
+        <button class="btn" id="clearAttrs" type="button">Clear</button>
+      </div>
+      <div class="sub" style="margin-bottom:8px"><span class="selected-count" id="attrCount">0</span> selected</div>
+      <div class="attr-list" id="attrList" role="list"></div>
+    </article>
+
+    <article class="card">
+      <div class="step-head"><span class="step-num">4</span><div><h2>Judge and preflight</h2>
+        <p>Judging is optional and explicitly labeled as an AI proxy.</p></div></div>
+      <div class="judge-box">
+        <label class="switchline"><input id="judgeEnabled" type="checkbox">
+          <span><strong>GPT-5.6 Sol cross-check</strong><br><span class="sub">Off by default for cost control.</span></span>
+        </label>
+        <label class="field">Judge scope<select id="judgeScope">
+          <option value="disagreements">Disagreements and invalid outputs only</option>
+          <option value="all">All outputs (higher cost)</option>
+        </select></label>
+        <label class="switchline"><input id="judgeIncludeStrings" type="checkbox">
+          <span><strong>Include free-text/string attributes in judge scope</strong><br>
+            <span class="sub">Off by default. Enabling makes selected text attributes eligible; choose them individually below.</span></span>
+        </label>
+        <div class="judge-scope-panel" id="judgeScopePanel" hidden>
+          <div class="judge-scope-head"><strong id="judgeAttrCount">0</strong> attributes will be judged</div>
+          <div class="judge-attr-list" id="judgeAttrList"></div>
+        </div>
+        <div class="estimate" aria-label="Estimated calls">
+          <div><strong id="estCandidates">0</strong><span>Candidate calls</span></div>
+          <div><strong id="estJudge">0</strong><span>Max judge calls</span></div>
+          <div><strong id="estJudgeItems">0</strong><span>Max judge items</span></div>
+          <div><strong id="estJudgeTokens">--</strong><span>Max judge tokens</span></div>
+          <div><strong id="estBatches">0</strong><span>Attribute batches</span></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="preflightButton" type="button">Run preflight</button>
+        <button class="btn primary" id="testButton" type="button" disabled>Test models</button>
+        <span class="status-text" id="preflightStatus">Preflight required</span>
+      </div>
+    </article>
+  </section>
+
+  <section class="work" id="progressSection">
+    <article class="card progress-card">
+      <div>
+        <div class="progress-top"><div><h2 id="progressTitle">Preparing run</h2><p class="sub" id="progressPhase"></p></div>
+          <button class="btn danger" id="cancelButton" type="button">Cancel</button></div>
+        <div class="bar"><i id="progressBar"></i></div>
+        <div class="progress-meta"><span id="progressCount">0 / 0 calls</span><span id="progressElapsed">0s elapsed</span></div>
+        <div class="model-progress" id="modelProgress"></div>
+      </div>
+      <div class="run-facts" id="runFacts"></div>
+    </article>
+  </section>
+
+  <section class="report" id="reportSection">
+    <div class="report-head"><div><h2>Model comparison</h2><p class="sub" id="reportSub"></p></div>
+      <div class="report-actions"><a class="btn" id="csvExport" title="Candidate results plus full AI-judgment audit rows. May include transcript-derived judge evidence; full transcripts and raw judge envelopes are excluded.">Export audit CSV</a><a class="btn" id="jsonExport" title="Excludes transcripts, prompts, and raw outputs">Export sanitized JSON</a></div></div>
+    <article class="card leader" id="leaderCard"></article>
+    <nav class="tabs" id="tabs" aria-label="Report views"></nav>
+    <section class="tab-panel" id="tab-overview"></section>
+    <section class="tab-panel" id="tab-judging"></section>
+    <section class="tab-panel" id="tab-attributes"></section>
+    <section class="tab-panel" id="tab-quality"></section>
+    <section class="tab-panel" id="tab-review"></section>
+    <section class="tab-panel" id="tab-operations"></section>
+    <section class="tab-panel" id="tab-methodology"></section>
+  </section>
+
+  <section class="history" id="historySection"><h2>Local run history</h2><div class="history-grid" id="historyGrid"></div></section>
+</main>
+<script>
+"use strict";
+const S={
+  mode:"real",bootstrap:null,attributes:[],selectedAttrs:new Set(),selectedJudgeAttrs:new Set(),
+  judgeEligibleSeen:new Set(),models:[],modelCatalog:[],selectedModels:new Set(),
+  preflight:null,preflightKey:"",run:null,pollTimer:null,pollGeneration:0,activeRunId:null,startedAt:null,
+  charts:[],activeTab:"overview",judgeIndex:0,judgePage:0,judgeFilters:{model:"",attribute:"",outcome:"",source:""},
+  reviewIndex:0,reviewFilters:{status:"",source:""},
+  attrSort:{key:"attribute",dir:1},noticeTimer:null
+};
+const $=s=>document.querySelector(s);
+function h(tag,attrs={},...children){
+  const n=document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==="class")n.className=v;else if(k==="dataset")Object.assign(n.dataset,v);
+    else if(k.startsWith("on"))n.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==="checked")n.checked=!!v;else if(k==="disabled")n.disabled=!!v;else if(k==="value")n.value=v;
+    else if(v!==null&&v!==undefined)n.setAttribute(k,String(v));
+  });
+  children.flat().forEach(c=>n.append(c instanceof Node?c:document.createTextNode(String(c))));
+  return n;
+}
+function clear(n){n.replaceChildren()}
+function fmtPct(v){return v===null||v===undefined?"--":`${(Number(v)*100).toFixed(1)}%`}
+function fmtNum(v,d=0){return v===null||v===undefined?"--":Number(v).toLocaleString(undefined,{maximumFractionDigits:d})}
+function fmtDate(v){if(!v)return "--";const d=new Date(v);return Number.isNaN(d.valueOf())?String(v):d.toLocaleString()}
+function fmtValue(v){if(v===null||v===undefined)return "";return typeof v==="string"?v:JSON.stringify(v)}
+function showNotice(message,type=""){
+  const n=$("#notice");clear(n);n.className=`notice on ${type}`;n.append(h("strong",{},type==="error"?"Issue":"Status"),h("span",{},message));
+  clearTimeout(S.noticeTimer);S.noticeTimer=setTimeout(()=>n.classList.remove("on"),8000);
+}
+async function api(url,options={}){
+  const response=await fetch(url,{headers:{"Content-Type":"application/json"},...options});
+  const text=await response.text();let payload={};
+  try{payload=text?JSON.parse(text):{}}catch{payload={error:"The server returned an invalid response."}}
+  if(!response.ok)throw new Error(payload.error||`Request failed (${response.status}).`);
+  return payload;
+}
+function configPayload(){
+  syncJudgeAttributes();
+  return {
+    mode:S.mode,job_id:$("#jobSelect").value,start_date:$("#startDate").value,end_date:$("#endDate").value,
+    sample_size:Number($("#sampleSize").value),seed:Number($("#seed").value),models:[...S.selectedModels],
+    attributes:[...S.selectedAttrs],judge:{enabled:$("#judgeEnabled").checked,scope:$("#judgeScope").value,
+      model:"gpt-6.1-sol",include_free_text:$("#judgeIncludeStrings").checked,attributes:[...S.selectedJudgeAttrs]}
+  };
+}
+function configKey(){return JSON.stringify(configPayload())}
+function markDirty(){
+  S.preflight=null;S.preflightKey="";$("#testButton").disabled=true;$("#preflightStatus").textContent="Preflight required";updateEstimate();
+}
+function updateEstimate(){
+  syncJudgeAttributes();
+  const selected=S.attributes.filter(attr=>S.selectedAttrs.has(attr.name));
+  const batches=Math.ceil(selected.length/20),samples=Math.max(0,Number($("#sampleSize").value)||0);
+  let judgeBatches=0;
+  for(let index=0;index<selected.length;index+=20){
+    if(selected.slice(index,index+20).some(attr=>S.selectedJudgeAttrs.has(attr.name)))judgeBatches+=1;
+  }
+  $("#estCandidates").textContent=fmtNum(samples*S.selectedModels.size*batches);
+  $("#estJudge").textContent=fmtNum($("#judgeEnabled").checked?samples*judgeBatches:0);
+  $("#estJudgeItems").textContent=fmtNum($("#judgeEnabled").checked?samples*S.selectedJudgeAttrs.size:0);
+  $("#estJudgeTokens").textContent="--";
+  $("#estBatches").textContent=fmtNum(batches);
+}
+function setTheme(theme){
+  document.documentElement.dataset.theme=theme;localStorage.setItem("optic-lab-theme",theme);
+  $("#themeButton").textContent=theme==="dark"?"Light mode":"Dark mode";
+}
+function renderModes(){
+  const root=$("#modeSwitch");clear(root);
+  [["real","Real Snowflake + Odin"],["demo","Deterministic demo"]].forEach(([mode,label])=>{
+    const card=h("button",{class:`mode-option ${S.mode===mode?"on":""}`,type:"button",onclick:async()=>{
+      if(S.mode===mode)return;S.mode=mode;renderModes();await loadBootstrap();
+    }},h("strong",{},label),h("span",{},mode==="real"?"Read-only sample; calls only after Test":"No external systems"));
+    root.append(card);
+  });
+}
+async function loadBootstrap(jobId=""){
+  $("#preflightButton").disabled=true;$("#testButton").disabled=true;
+  try{
+    const q=new URLSearchParams({mode:S.mode});if(jobId)q.set("job",jobId);
+    const data=await api(`/api/model-lab/bootstrap?${q}`);S.bootstrap=data;S.attributes=data.attributes||[];
+    S.models=data.models||[];S.modelCatalog=data.model_catalog||[];
+    renderJobs(data.jobs||[],data.selected_job_id);renderModels();
+    S.selectedAttrs=new Set(S.attributes.slice(0,Math.min(12,S.attributes.length)).map(a=>a.name));
+    S.selectedJudgeAttrs=new Set();S.judgeEligibleSeen=new Set();renderAttributes();
+    const d=data.defaults||{};if(!$("#startDate").value)$("#startDate").value=d.start_date||"";
+    if(!$("#endDate").value)$("#endDate").value=d.end_date||"";
+    $("#sampleSize").max=d.sample_cap||10000;$("#sampleSize").value=Math.min(Number($("#sampleSize").value)||d.sample_size||10,d.sample_cap||10000);
+    $("#preflightButton").disabled=false;markDirty();
+  }catch(error){
+    S.bootstrap=null;S.attributes=[];renderJobs([],null);renderAttributes();showNotice(error.message,"error");
+    if(S.mode==="real")$("#preflightStatus").textContent="Real data unavailable; demo remains available";
+  }
+}
+function renderJobs(jobs,selected){
+  const select=$("#jobSelect");clear(select);
+  if(!jobs.length){select.append(h("option",{value:""},"No active prompts available"));return}
+  jobs.forEach(job=>{
+    const option=h("option",{value:job.id},`${job.job_name} - prompt ${job.prompt_id}`);
+    option.selected=String(job.id)===String(selected);select.append(option);
+  });
+}
+function renderModels(){
+  if(!S.selectedModels.size)S.models.slice(0,2).forEach(m=>S.selectedModels.add(m));
+  const root=$("#modelGrid");clear(root);
+  const all=[...new Set([...S.models,...S.selectedModels])];
+  const metadata=new Map(S.modelCatalog.map(item=>[item.slug,item]));
+  let activeGroup=null;
+  all.forEach(model=>{
+    const meta=metadata.get(model)||{
+      group:model.startsWith("claude-")?"Anthropic candidates":"Environment configured",
+      status:model.startsWith("claude-")?"candidate":"configured",
+      availability:model.startsWith("claude-")?"Availability depends on Odin gateway access.":"Configured explicitly; availability is not pre-verified."
+    };
+    if(meta.group!==activeGroup){activeGroup=meta.group;root.append(h("div",{class:"model-group"},activeGroup))}
+    const input=h("input",{type:"checkbox",checked:S.selectedModels.has(model),"aria-label":`Select ${model}`});
+    input.addEventListener("change",()=>{input.checked?S.selectedModels.add(model):S.selectedModels.delete(model);renderModels();markDirty()});
+    root.append(h("label",{class:`check-card ${input.checked?"on":""}`,title:meta.availability},input,
+      h("span",{class:"model-copy"},h("span",{class:"model-name"},model),
+        h("span",{class:`model-badge ${meta.status==="candidate"?"candidate":""}`},meta.status))));
+  });
+}
+function filteredAttributes(){
+  const q=$("#attrSearch").value.trim().toLowerCase();
+  return S.attributes.filter(a=>!q||[a.name,a.description,a.prompt,a.group,a.result_type].join(" ").toLowerCase().includes(q));
+}
+function isFreeTextAttribute(attr){
+  const type=String(attr.result_type||"STRING").toUpperCase();
+  return ["STRING","TEXT","VARCHAR","FREEFORM"].includes(type)&&!(attr.options||[]).length;
+}
+function eligibleJudgeAttributes(){
+  const includeStrings=$("#judgeIncludeStrings").checked;
+  return S.attributes.filter(attr=>S.selectedAttrs.has(attr.name)&&(includeStrings||!isFreeTextAttribute(attr)));
+}
+function syncJudgeAttributes(){
+  const eligible=eligibleJudgeAttributes(),eligibleNames=new Set(eligible.map(attr=>attr.name));
+  [...S.selectedJudgeAttrs].forEach(name=>{if(!eligibleNames.has(name))S.selectedJudgeAttrs.delete(name)});
+  eligible.forEach(attr=>{
+    if(!S.judgeEligibleSeen.has(attr.name)&&!isFreeTextAttribute(attr))S.selectedJudgeAttrs.add(attr.name);
+  });
+  S.judgeEligibleSeen=eligibleNames;
+  return eligible;
+}
+function renderJudgeAttributes(){
+  const eligible=syncJudgeAttributes(),root=$("#judgeAttrList"),enabled=$("#judgeEnabled").checked;
+  $("#judgeScopePanel").hidden=!enabled;clear(root);
+  if(!eligible.length)root.append(h("div",{class:"empty"},"No eligible candidate-test attributes."));
+  eligible.forEach(attr=>{
+    const input=h("input",{type:"checkbox",checked:S.selectedJudgeAttrs.has(attr.name),
+      "aria-label":`Judge ${attr.name}`});
+    input.addEventListener("change",()=>{
+      input.checked?S.selectedJudgeAttrs.add(attr.name):S.selectedJudgeAttrs.delete(attr.name);
+      renderJudgeAttributes();markDirty();
+    });
+    root.append(h("label",{class:"judge-attr"},input,h("code",{},attr.name),h("em",{},attr.result_type)));
+  });
+  $("#judgeAttrCount").textContent=String(S.selectedJudgeAttrs.size);
+}
+function renderAttributes(){
+  const root=$("#attrList");clear(root);
+  const attrs=filteredAttributes();
+  if(!attrs.length){root.append(h("div",{class:"empty"},"No matching active attributes."))}
+  let activeGroup=null;
+  attrs.forEach(attr=>{
+    const group=attr.group||"Configured attributes";
+    if(group!==activeGroup){activeGroup=group;root.append(h("div",{class:"attr-group"},group))}
+    const input=h("input",{type:"checkbox",checked:S.selectedAttrs.has(attr.name),"aria-label":`Select ${attr.name}`});
+    input.addEventListener("change",()=>{input.checked?S.selectedAttrs.add(attr.name):S.selectedAttrs.delete(attr.name);renderAttributes();markDirty()});
+    const text=h("div",{},h("div",{class:"attr-name"},attr.name),h("div",{class:"attr-desc",title:attr.prompt||attr.description},attr.description||attr.prompt||"No description"));
+    root.append(h("label",{class:"attr-row",role:"listitem"},input,text,h("span",{class:"type"},attr.result_type)));
+  });
+  $("#attrCount").textContent=String(S.selectedAttrs.size);renderJudgeAttributes();updateEstimate();
+}
+async function runPreflight(){
+  syncJudgeAttributes();
+  if($("#judgeEnabled").checked&&!S.selectedJudgeAttrs.size){
+    $("#preflightStatus").textContent="Select at least one judge attribute";
+    showNotice("Select at least one judge attribute when the AI judge is enabled.","error");
+    return;
+  }
+  $("#preflightButton").disabled=true;$("#preflightStatus").textContent="Checking sample and configuration...";
+  try{
+    const key=configKey(),data=await api("/api/model-lab/preflight",{method:"POST",body:key});
+    S.preflight=data;S.preflightKey=key;$("#testButton").disabled=data.sample_will_use<1;
+    $("#preflightStatus").textContent=`${fmtNum(data.available_transcripts)} available; ${fmtNum(data.sample_will_use)} sampled`;
+    $("#estCandidates").textContent=fmtNum(data.candidate_calls);$("#estJudge").textContent=fmtNum(data.max_judge_calls);
+    $("#estJudgeItems").textContent=fmtNum(data.max_judge_items);
+    $("#estJudgeTokens").textContent=data.estimated_max_judge_tokens?`~${fmtNum(data.estimated_max_judge_tokens)}`:"0";
+    if(data.warning)showNotice(data.warning);
+    const truncations=(data.preview||[]).filter(item=>item.will_truncate).length;
+    if(truncations)showNotice(`${truncations} preview transcript(s) exceed the configured character cap; truncation will be recorded.`);
+  }catch(error){showNotice(error.message,"error");$("#preflightStatus").textContent="Preflight failed"}
+  finally{$("#preflightButton").disabled=false}
+}
+async function startRun(){
+  if($("#judgeEnabled").checked&&!S.selectedJudgeAttrs.size){
+    showNotice("Select at least one judge attribute when the AI judge is enabled.","error");return;
+  }
+  if(!S.preflight||S.preflightKey!==configKey()){showNotice("Run preflight again after configuration changes.","error");return}
+  $("#testButton").disabled=true;
+  try{
+    const data=await api("/api/model-lab/runs",{method:"POST",body:configKey()});
+    const generation=activateRun(data.run.id);S.run=data.run;sessionStorage.setItem("optic-lab-run",data.run.id);
+    S.startedAt=Date.now();showProgress(data.run);pollRun(data.run.id,generation);
+    if(data.duplicate)showNotice("An identical run is already active; showing its progress.");
+  }catch(error){showNotice(error.message,"error");$("#testButton").disabled=false}
+}
+function activateRun(id){
+  clearTimeout(S.pollTimer);S.pollTimer=null;S.activeRunId=id;S.pollGeneration+=1;S.run=null;
+  S.judgeIndex=0;S.judgePage=0;S.judgeFilters={model:"",attribute:"",outcome:"",source:""};
+  S.reviewIndex=0;S.reviewFilters={status:"",source:""};$("#cancelButton").disabled=true;
+  return S.pollGeneration;
+}
+function isActiveRun(id,generation){return S.activeRunId===id&&S.pollGeneration===generation}
+function schedulePoll(id,generation,delay){
+  if(!isActiveRun(id,generation))return;
+  clearTimeout(S.pollTimer);S.pollTimer=setTimeout(()=>{if(isActiveRun(id,generation))pollRun(id,generation)},delay);
+}
+function showProgress(summary){
+  $("#progressSection").classList.add("on");$("#reportSection").classList.remove("on");
+  $("#progressTitle").textContent=`${summary.job_name||"Model Lab"} run`;
+  document.getElementById("progressSection").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function progressPercent(run){
+  const p=run.progress||{},candidate=Number(p.candidate_completed||0),candidateTotal=Number(p.candidate_total||0);
+  const judge=Number(p.judge_completed||0),judgeMax=run.config&&run.config.judge.enabled?Number(p.judge_total_max||0):0;
+  if(run.status==="completed")return 100;return Math.min(99,(candidate+judge)/Math.max(1,candidateTotal+judgeMax)*100);
+}
+function renderProgress(run){
+  const p=run.progress||{},pct=progressPercent(run);$("#progressBar").style.width=`${pct}%`;
+  $("#progressPhase").textContent=`Phase: ${p.phase||run.status}`;
+  $("#progressCount").textContent=`${fmtNum((p.candidate_completed||0)+(p.judge_completed||0))} / ${fmtNum((p.candidate_total||0)+(p.judge_total_max||0))} max calls`;
+  const base=S.startedAt||new Date(run.created_at).valueOf();$("#progressElapsed").textContent=`${fmtNum((Date.now()-base)/1000)}s elapsed`;
+  const mp=$("#modelProgress");clear(mp);Object.entries(p.per_model||{}).forEach(([model,item])=>{
+    const value=100*Number(item.completed||0)/Math.max(1,Number(item.total||0));
+    mp.append(h("div",{class:"mp"},h("b",{},model),h("span",{class:"mini"},h("i",{style:`width:${value}%`})),h("span",{},`${item.completed}/${item.total}`)));
+  });
+  Object.entries(p.per_batch||{}).forEach(([batch,item])=>{
+    const value=100*Number(item.completed||0)/Math.max(1,Number(item.total||0));
+    mp.append(h("div",{class:"mp"},h("b",{},`Batch ${batch}`),h("span",{class:"mini"},h("i",{style:`width:${value}%`})),h("span",{},`${item.completed}/${item.total}`)));
+  });
+  const facts=$("#runFacts");clear(facts);
+  [["Status",run.status],["Errors",p.errors||0],["Retries",p.retries||0],["Judge calls",p.judge_completed||0]].forEach(([label,value])=>
+    facts.append(h("div",{class:"fact"},h("b",{},value),h("span",{},label))));
+  $("#cancelButton").disabled=!["queued","running","cancelling"].includes(run.status);
+}
+async function pollRun(id,generation){
+  if(!isActiveRun(id,generation))return;
+  clearTimeout(S.pollTimer);
+  try{
+    const status=await api(`/api/model-lab/runs/${id}?view=status`);
+    if(!isActiveRun(id,generation))return;
+    S.run=status;showProgress(run_summary(status));renderProgress(status);
+    if(["completed","cancelled","failed"].includes(status.status)){
+      const run=await api(`/api/model-lab/runs/${id}`);
+      if(!isActiveRun(id,generation))return;
+      S.run=run;
+      if(sessionStorage.getItem("optic-lab-run")===id)sessionStorage.removeItem("optic-lab-run");
+      await loadHistory(generation);
+      if(!isActiveRun(id,generation))return;
+      if(run.report&&run.report.leaderboard)renderReport(run);
+      if(run.status==="failed")showNotice(run.error||"Run failed.","error");
+      return;
+    }
+    schedulePoll(id,generation,850);
+  }catch(error){
+    if(!isActiveRun(id,generation))return;
+    showNotice(error.message,"error");schedulePoll(id,generation,2500);
+  }
+}
+function run_summary(run){return {job_name:run.config&&run.config.job_name,status:run.status}}
+async function cancelRun(){
+  if(!S.run||S.run.id!==S.activeRunId)return;$("#cancelButton").disabled=true;
+  try{await api(`/api/model-lab/runs/${S.run.id}/cancel`,{method:"POST",body:"{}"})}catch(error){showNotice(error.message,"error")}
+}
+function closeCharts(){S.charts.forEach(c=>{try{c.dispose()}catch{}});S.charts=[]}
+const TABS=[["overview","Executive"],["judging","AI judging"],["attributes","Per attribute"],["quality","Quality and disputes"],["review","Manual review"],["operations","Latency and tokens"],["methodology","Methodology"]];
+function renderTabs(){
+  const root=$("#tabs");clear(root);
+  TABS.forEach(([id,label])=>root.append(h("button",{class:`tab ${S.activeTab===id?"on":""}`,type:"button",onclick:()=>{
+    S.activeTab=id;document.querySelectorAll(".tab").forEach((n,i)=>n.classList.toggle("on",TABS[i][0]===id));
+    document.querySelectorAll(".tab-panel").forEach(n=>n.classList.toggle("on",n.id===`tab-${id}`));renderActiveTab();
+  }},label)));
+  document.querySelectorAll(".tab-panel").forEach(n=>n.classList.toggle("on",n.id===`tab-${S.activeTab}`));
+}
+function renderReport(run){
+  S.run=run;closeCharts();$("#progressSection").classList.remove("on");$("#reportSection").classList.add("on");
+  const truncated=(run.transcripts||[]).filter(item=>item.truncated).length;
+  const judge=run.config.judge||{},judgeAttrs=Array.isArray(judge.attributes)?judge.attributes:(run.config.attributes||[]);
+  $("#reportSub").textContent=`${run.config.job_name} | ${run.transcripts.length} transcripts | ${run.attributes.length} test attributes${judge.enabled?` | ${judgeAttrs.length} judge attributes`:""} | seed ${run.config.seed}${truncated?` | ${truncated} transcript(s) truncated`:""}`;
+  $("#csvExport").href=`/api/model-lab/runs/${run.id}/export?format=csv`;$("#jsonExport").href=`/api/model-lab/runs/${run.id}/export?format=json`;
+  const rec=run.report.recommendation||{},leader=$("#leaderCard");clear(leader);
+  const headline=rec.model||(rec.label==="Tie"?"No unique leader":rec.label)||"No leader";
+  leader.append(h("div",{class:"leader-label"},rec.label||"Result"),h("h3",{},headline),h("p",{},rec.statement||"No result available."));
+  renderTabs();renderActiveTab();document.getElementById("reportSection").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function renderActiveTab(){
+  if(!S.run)return;closeCharts();const fn={overview:renderOverview,judging:renderJudging,attributes:renderPerAttribute,quality:renderQuality,review:renderReview,operations:renderOperations,methodology:renderMethodology}[S.activeTab];fn&&fn();
+}
+function makeTable(columns,rows,sortHandler=null){
+  const table=h("table"),thead=h("thead"),tr=h("tr");
+  columns.forEach(col=>tr.append(h("th",{onclick:sortHandler?()=>sortHandler(col.key):null},col.label)));
+  thead.append(tr);const tbody=h("tbody");
+  rows.forEach(row=>{const r=h("tr");columns.forEach(col=>{
+    const value=col.render?col.render(row):row[col.key];const td=h("td",{class:col.class||""});
+    td.append(value instanceof Node?value:document.createTextNode(value===null||value===undefined?"--":String(value)));r.append(td);
+  });tbody.append(r)});table.append(thead,tbody);return h("div",{class:"table-wrap"},table);
+}
+function renderOverview(){
+  const root=$("#tab-overview"),rows=S.run.report.leaderboard||[];clear(root);
+  const first=rows[0]||{};const kpis=h("div",{class:"kpis"});
+  [["Basis",S.run.report.recommendation.basis||"--","Ranking label"],["Operational quality",fmtPct(first.operational_quality),"Not accuracy"],
+   ["Reviewed accuracy",fmtPct(first.reviewed_accuracy),`${first.reviewed_items||0} reviewed items`],
+   ["AI-judged accuracy",fmtPct(first.ai_judged_accuracy),`${first.ai_judged_items||0} proxy items`]].forEach(([label,value,note])=>
+    kpis.append(h("article",{class:"card kpi"},h("div",{class:"label"},label),h("div",{class:"value"},value),h("div",{class:"note"},note))));
+  const chartCard=h("article",{class:"card"},h("div",{class:"sub"},"Transparent score components"),h("div",{class:"chart",id:"leaderChart"}));
+  const modelCards=h("div",{class:"kpis"});
+  rows.forEach(row=>modelCards.append(h("article",{class:"card kpi"},h("div",{class:"label"},row.model),
+    h("div",{class:"value"},fmtPct(row.operational_quality)),
+    h("div",{class:"note"},`${fmtPct(row.components.completeness)} complete | ${fmtPct(row.components.domain_validity)} valid`))));
+  const cols=[{key:"rank",label:"Rank"},{key:"model",label:"Model",class:"mono"},{key:"operational_quality",label:"Operational",render:r=>fmtPct(r.operational_quality)},
+    {key:"reviewed_accuracy",label:"Human reviewed",render:r=>fmtPct(r.reviewed_accuracy)},{key:"ai_judged_accuracy",label:"AI judged",render:r=>fmtPct(r.ai_judged_accuracy)},
+    {key:"components",label:"Completeness",render:r=>fmtPct(r.components.completeness)},{key:"components",label:"Validity",render:r=>fmtPct(r.components.domain_validity)},
+    {key:"components",label:"Baseline agreement",render:r=>fmtPct(r.components.baseline_agreement)}];
+  root.append(kpis,modelCards,h("div",{class:"split"},chartCard,makeTable(cols,rows)));
+  requestAnimationFrame(()=>{
+    const c=echarts.init($("#leaderChart"));S.charts.push(c);
+    c.setOption({tooltip:{trigger:"axis"},legend:{bottom:0},grid:{left:50,right:20,top:20,bottom:55},
+      xAxis:{type:"category",data:rows.map(r=>r.model),axisLabel:{rotate:20}},yAxis:{type:"value",max:1,axisLabel:{formatter:v=>`${v*100}%`}},
+      series:["request_success","parse_success","completeness","domain_validity","schema_compliance","baseline_agreement"].map(key=>({
+        name:key.replaceAll("_"," "),type:"bar",stack:"score",data:rows.map(r=>(r.components[key]||0)*(S.run.report.weights[key]||0))
+      }))});
+  });
+}
+function storedBlankRule(spec){
+  if(!spec)return "Unavailable";
+  if(spec.allow_blank)return "Allowed (stored metadata)";
+  if(String(spec.result_type||"").toUpperCase()==="BOOLEMPTY")return "Allowed by result type";
+  return "Not allowed in stored metadata";
+}
+function judgeRequestedAttributes(judgment){
+  if(!judgment)return [];
+  if(Array.isArray(judgment.attributes_requested))return [...new Set(judgment.attributes_requested.map(String))];
+  const results=judgment.results&&typeof judgment.results==="object"?Object.keys(judgment.results):[],
+    missing=Array.isArray(judgment.missing_attributes)?judgment.missing_attributes.map(String):[];
+  return [...new Set([...results,...missing])];
+}
+function judgeMissingAttributes(judgment){
+  if(!judgment)return [];
+  const results=judgment.results&&typeof judgment.results==="object"?judgment.results:{},
+    stored=Array.isArray(judgment.missing_attributes)?judgment.missing_attributes.map(String):[],
+    inferred=judgeRequestedAttributes(judgment).filter(attribute=>!Object.hasOwn(results,attribute));
+  return [...new Set([...stored,...inferred])];
+}
+function judgeExtraAttributeCount(judgment){
+  if(!judgment)return null;
+  if(judgment.extra_attribute_count!==undefined&&judgment.extra_attribute_count!==null)return Number(judgment.extra_attribute_count);
+  if(!Array.isArray(judgment.attributes_requested))return null;
+  const requested=new Set(judgeRequestedAttributes(judgment)),results=judgment.results&&typeof judgment.results==="object"?Object.keys(judgment.results):[];
+  return results.filter(attribute=>!requested.has(attribute)).length;
+}
+function judgmentIncludesAttribute(judgment,attribute){
+  return !!judgment&&judgeRequestedAttributes(judgment).includes(String(attribute));
+}
+function buildJudgeCandidates(run,analysisId,batchIndex,attribute,mapping,result,callIndex){
+  const models=[...new Set([...(run.config&&run.config.models||[]),...Object.values(mapping||{})].filter(model=>typeof model==="string"&&model))];
+  return models.map(model=>{
+    const call=callIndex.get(`${analysisId}|${Number(batchIndex||0)}|${model}`),validations=call&&Array.isArray(call.validations)?call.validations:[],
+      validation=validations.find(item=>item.attribute===attribute);
+    const values=call&&call.values&&typeof call.values==="object"?call.values:{};
+    const raw=validation&&Object.hasOwn(validation,"raw")?validation.raw:(Object.hasOwn(values,attribute)?values[attribute]:undefined);
+    const canonical=validation&&Object.hasOwn(validation,"canonical")?validation.canonical:undefined;
+    const label=Object.entries(mapping||{}).find(([,mapped])=>mapped===model)?.[0]||null;
+    const correctness=result&&result.candidate_correctness&&label&&Object.hasOwn(result.candidate_correctness,label)?
+      result.candidate_correctness[label]:undefined;
+    return {model,label,call,validation,raw,canonical,correctness};
+  });
+}
+function buildJudgeAuditItems(run){
+  const config=run.config||{},judge=config.judge||{},specs=run.attributes||[],transcripts=run.transcripts||[],
+    judgments=run.judgments||[],scope=Array.isArray(judge.attributes)?judge.attributes:(config.attributes||specs.map(spec=>spec.name));
+  const specByName=new Map(specs.map((spec,index)=>[spec.name,{spec,index}])),transcriptById=new Map(transcripts.map(item=>[String(item.analysis_id),item]));
+  const judgmentByCall=new Map(judgments.map(item=>[`${item.analysis_id}|${Number(item.batch_index||0)}`,item])),seeds=new Map(),
+    callIndex=new Map(),sourceByBatch=new Map();
+  (run.calls||[]).forEach(call=>{
+    const batchKey=`${call.analysis_id}|${Number(call.batch_index||0)}`;
+    callIndex.set(`${batchKey}|${call.model}`,call);
+    if(!sourceByBatch.has(batchKey)&&call.source_id!==undefined)sourceByBatch.set(batchKey,call.source_id);
+  });
+  const add=(analysisId,batchIndex,attribute,judgment=null)=>{
+    attribute=String(attribute);
+    const key=`${analysisId}|${Number(batchIndex||0)}|${attribute}`;
+    if(!seeds.has(key))seeds.set(key,{key,analysisId:String(analysisId),batchIndex:Number(batchIndex||0),attribute,judgment});
+    else if(judgment)seeds.get(key).judgment=judgment;
+  };
+  transcripts.forEach(transcript=>scope.forEach(attribute=>{
+    const index=specByName.get(attribute)?.index??0;
+    const batchIndex=Math.floor(index/20),judgment=judgmentByCall.get(`${transcript.analysis_id}|${batchIndex}`)||null;
+    add(transcript.analysis_id,batchIndex,attribute,judgmentIncludesAttribute(judgment,attribute)?judgment:null);
+  }));
+  judgments.forEach(judgment=>{
+    const attributes=judgeRequestedAttributes(judgment);
+    if(!attributes.length&&judgment.error)attributes.push("(judge call)");
+    attributes.forEach(attribute=>add(judgment.analysis_id,judgment.batch_index,attribute,judgment));
+  });
+  return [...seeds.values()].map(seed=>{
+    const batchJudgment=judgmentByCall.get(`${seed.analysisId}|${seed.batchIndex}`)||null,
+      judgment=seed.judgment||(judgmentIncludesAttribute(batchJudgment,seed.attribute)?batchJudgment:null),
+      results=judgment&&judgment.results&&typeof judgment.results==="object"?judgment.results:{},
+      result=results[seed.attribute]||null,mapping=judgment&&judgment.mapping&&typeof judgment.mapping==="object"?judgment.mapping:{},
+      winnerRaw=result&&result.winner!==undefined?String(result.winner):null,winnerLower=(winnerRaw||"").toLowerCase(),
+      winnerModel=winnerRaw&&mapping[winnerRaw]?mapping[winnerRaw]:null,missing=judgeMissingAttributes(judgment).includes(seed.attribute),
+      error=judgment&&judgment.error?String(judgment.error):null;
+    let outcome="unjudged";
+    if(error)outcome="error";else if(result&&winnerModel)outcome="winner";else if(result&&winnerLower==="tie")outcome="tie";
+    else if(result&&winnerLower==="uncertain")outcome="uncertain";else if(result&&winnerRaw)outcome="uncertain";
+    const confidence=result&&Number.isFinite(Number(result.confidence))?Number(result.confidence):null,
+      transcript=transcriptById.get(seed.analysisId)||null,
+      sourceId=String(transcript&&transcript.source_id||sourceByBatch.get(`${seed.analysisId}|${seed.batchIndex}`)||seed.analysisId),
+      candidates=buildJudgeCandidates(run,seed.analysisId,seed.batchIndex,seed.attribute,mapping,result,callIndex),
+      unresolved=outcome==="uncertain"||candidates.some(candidate=>candidate.correctness===null);
+    return {...seed,judgment,result,mapping,winnerRaw,winnerModel,outcome,confidence,missing,error,unresolved,
+      sourceId,spec:specByName.get(seed.attribute)?.spec||null,transcript,candidates};
+  }).sort((a,b)=>a.sourceId.localeCompare(b.sourceId)||a.batchIndex-b.batchIndex||a.attribute.localeCompare(b.attribute));
+}
+function judgeOutcomeText(item){
+  if(item.outcome==="winner")return item.winnerModel?`${item.winnerModel} winner`:"Winner label unavailable";
+  if(item.outcome==="tie")return "Tie";if(item.outcome==="uncertain")return "Uncertain";
+  if(item.outcome==="error")return "Judge call error";return item.missing?"Missing judge result":"Unjudged";
+}
+function judgeCorrectnessText(value){
+  if(value===true)return ["Judge: correct","correct"];if(value===false)return ["Judge: incorrect","incorrect"];
+  if(value===null)return ["Judge: unresolved","unresolved"];return ["Not judged","sub"];
+}
+function renderJudgeDetail(root,item,filters){
+  const detail=h("article",{class:"card audit-detail"}),spec=item.spec,judgment=item.judgment||{},result=item.result||{},
+    judgeConfig=S.run.config&&S.run.config.judge||{},usage=judgment.usage||{};
+  detail.append(h("div",{class:`outcome ${item.outcome}`},judgeOutcomeText(item)),
+    h("h3",{},item.attribute),h("p",{class:"sub"},`Source ${item.sourceId||"--"} | Analysis ${item.analysisId||"--"} | Batch ${item.batchIndex+1}`));
+  const contract=h("section",{class:"audit-section"},h("h4",{},"Attribute contract"));
+  if(spec){
+    contract.append(h("div",{class:"audit-facts"},
+      h("div",{class:"audit-fact"},h("b",{},"Result type"),h("code",{},spec.result_type||"Unspecified")),
+    h("div",{class:"audit-fact"},h("b",{},"Blank rule"),h("span",{},storedBlankRule(spec))),
+      h("div",{class:"audit-fact"},h("b",{},"Allowed options"),h("span",{},spec.options&&spec.options.length?fmtValue(spec.options):"No finite option set"))),
+    h("div",{class:"judge-copy"},spec.prompt||spec.description||"Instruction unavailable in this historical run."),
+    h("p",{class:"sub"},"The stored blank metadata is shown without applying newer derived-policy rules. Recorded candidate validity below is authoritative for this run."));
+  }else contract.append(h("div",{class:"empty"},"Attribute contract unavailable in this historical or partial run."));
+  detail.append(contract);
+  const decision=h("section",{class:"audit-section"},h("h4",{},"AI judge decision"),
+    h("p",{class:"sub"},"AI proxy only—not human ground truth. Anonymous labels are reversed for display only after judgment; deployment names were not sent to the judge."));
+  if(item.result){
+    decision.append(h("div",{class:"audit-facts"},
+      h("div",{class:"audit-fact"},h("b",{},"Outcome"),h("span",{},judgeOutcomeText(item))),
+      h("div",{class:"audit-fact"},h("b",{},"Confidence"),h("span",{},item.confidence===null?"Not provided":fmtPct(item.confidence))),
+      h("div",{class:"audit-fact"},h("b",{},"Winner field"),h("code",{},item.winnerRaw||"Not provided"))),
+      h("h4",{},"Rationale"),h("div",{class:"judge-copy"},result.rationale||"No rationale provided."),
+      h("h4",{},"Transcript evidence"),h("div",{class:"judge-copy"},result.evidence||"No transcript evidence provided."));
+  }else decision.append(h("div",{class:"empty"},item.error?`No decision: ${item.error}`:item.missing?
+    "The judge response omitted this requested attribute.":"No judge decision was requested or recorded for this item."));
+  detail.append(decision);
+  const outputs=h("section",{class:"audit-section"},h("h4",{},"Candidate outputs and reversed correctness"));
+  const shown=item.candidates.filter(candidate=>!filters.model||candidate.model===filters.model);
+  if(!shown.length)outputs.append(h("div",{class:"empty"},"No matching candidate call was recorded."));
+  shown.forEach(candidate=>{
+    const validity=candidate.validation?(candidate.validation.valid?"Valid":candidate.validation.reason||"Invalid"):
+      (candidate.call?"Validation unavailable":"Candidate call unavailable"),correctness=judgeCorrectnessText(candidate.correctness);
+    outputs.append(h("div",{class:"output"},h("b",{},candidate.model),
+      h("span",{class:"sub"},candidate.label?`Blinded as ${candidate.label}`:"Anonymous label unavailable"),
+      h("code",{},`Raw: ${candidate.raw===undefined?"Unavailable":fmtValue(candidate.raw)}`),
+      h("code",{},`Canonical: ${candidate.canonical===undefined?"Unavailable":fmtValue(candidate.canonical)}`),
+      h("div",{class:"candidate-judgment"},h("span",{class:candidate.validation&&candidate.validation.valid?"good":"bad"},validity),
+        h("span",{class:correctness[1]},correctness[0]))));
+  });
+  detail.append(outputs,h("section",{class:"audit-section"},h("h4",{},"Transcript"),
+    h("div",{class:"transcript"},item.transcript&&item.transcript.transcript?item.transcript.transcript:"Transcript unavailable in this historical or partial run.")));
+  const callMeta=h("section",{class:"audit-section"},h("h4",{},"Judge call metadata"),h("div",{class:"audit-facts"},
+    h("div",{class:"audit-fact"},h("b",{},"Configured judge"),h("code",{},judgeConfig.model||"Unavailable")),
+    h("div",{class:"audit-fact"},h("b",{},"Latency"),h("span",{},judgment.latency_seconds===undefined?"Unavailable":`${fmtNum(judgment.latency_seconds,4)}s`)),
+    h("div",{class:"audit-fact"},h("b",{},"Retries"),h("span",{},judgment.retries===undefined?"Unavailable":fmtNum(judgment.retries))),
+    h("div",{class:"audit-fact"},h("b",{},"Prompt tokens"),h("span",{},usage.prompt_tokens===undefined?"Unavailable":fmtNum(usage.prompt_tokens))),
+    h("div",{class:"audit-fact"},h("b",{},"Completion tokens"),h("span",{},usage.completion_tokens===undefined?"Unavailable":fmtNum(usage.completion_tokens))),
+    h("div",{class:"audit-fact"},h("b",{},"Total tokens"),h("span",{},usage.total_tokens===undefined?"Unavailable":fmtNum(usage.total_tokens))),
+    h("div",{class:"audit-fact"},h("b",{},"Missing requested attrs"),h("span",{},judgeMissingAttributes(judgment).length?
+      judgeMissingAttributes(judgment).join(", "):"None recorded")),
+    h("div",{class:"audit-fact"},h("b",{},"Extra judge attrs"),h("span",{},judgeExtraAttributeCount(judgment)===null?"Unavailable":fmtNum(judgeExtraAttributeCount(judgment)))),
+    h("div",{class:"audit-fact"},h("b",{},"Call error"),h("span",{},judgment.error||"None"))));
+  detail.append(callMeta);root.append(detail);
+}
+function renderJudging(){
+  const root=$("#tab-judging");clear(root);const run=S.run,judge=run.config&&run.config.judge||{},
+    judgments=run.judgments||[],filters=S.judgeFilters||{};
+  root.append(h("article",{class:"card audit-note"},h("strong",{},"AI judging is an operational proxy, not human ground truth."),
+    h("p",{class:"sub"},"This audit view reverses anonymous candidate labels only after judgment. It shows normalized verdicts and stored run evidence; it never exposes authorization data or sends deployment names back to the judge.")));
+  if(!judge.enabled&&!judgments.length){root.append(h("div",{class:"card empty"},"AI judging was disabled for this run."));return}
+  const items=buildJudgeAuditItems(run);
+  const completedCalls=judgments.filter(item=>!item.error).length,
+    judgedItems=items.filter(item=>!!item.result).length,unresolved=items.filter(item=>item.unresolved).length,
+    missing=items.filter(item=>item.missing).length,errorCalls=judgments.filter(item=>item.error).length,
+    confidenceValues=items.map(item=>item.confidence).filter(value=>value!==null),
+    avgConfidence=confidenceValues.length?confidenceValues.reduce((sum,value)=>sum+value,0)/confidenceValues.length:null,
+    unjudged=items.filter(item=>!item.result&&!item.error).length,maxCalls=run.progress&&run.progress.judge_total_max;
+  const kpis=h("div",{class:"kpis"});
+  [["Completed judge calls",completedCalls,`${judgments.length} recorded${maxCalls!==undefined?` / ${maxCalls} max`:""}`],
+    ["Judged items",judgedItems,`${unjudged} unjudged or policy-skipped`],["Unresolved",unresolved,"Uncertain or null correctness"],
+    ["Missing results",missing,"Requested attributes omitted"],["Error calls",errorCalls,"Judge transport, HTTP, or parse errors"],
+    ["Average confidence",avgConfidence===null?"--":fmtPct(avgConfidence),"Across normalized judge results"]].forEach(([label,value,note])=>
+      kpis.append(h("article",{class:"card kpi"},h("div",{class:"label"},label),h("div",{class:"value"},String(value)),h("div",{class:"note"},note))));
+  root.append(kpis);
+  const models=["",...new Set(run.config&&run.config.models||[])],attributes=["",...new Set(items.map(item=>item.attribute).filter(value=>value!=="(judge call)"))],
+    model=h("select",{},...models.map(value=>h("option",{value},value||"All models"))),
+    attribute=h("select",{},...attributes.map(value=>h("option",{value},value||"All attributes"))),
+    outcome=h("select",{},...[["","All outcomes"],["winner","Winner"],["tie","Tie"],["uncertain","Uncertain"],["error","Error"],["unjudged","Unjudged"]].map(([value,label])=>h("option",{value},label))),
+    source=h("input",{type:"search",placeholder:"Source / analysis id",value:filters.source||""});
+  model.value=filters.model||"";attribute.value=filters.attribute||"";outcome.value=filters.outcome||"";
+  const refresh=()=>{S.judgeFilters={model:model.value,attribute:attribute.value,outcome:outcome.value,source:source.value.trim()};S.judgeIndex=0;S.judgePage=0;renderJudging()};
+  model.addEventListener("change",refresh);attribute.addEventListener("change",refresh);outcome.addEventListener("change",refresh);source.addEventListener("change",refresh);
+  root.append(h("div",{class:"filters"},model,attribute,outcome,source));
+  const filtered=items.filter(item=>(!filters.model||item.candidates.some(candidate=>candidate.model===filters.model))&&
+    (!filters.attribute||item.attribute===filters.attribute)&&(!filters.outcome||item.outcome===filters.outcome)&&
+    (!filters.source||`${item.sourceId||""} ${item.analysisId||""}`.toLowerCase().includes(filters.source.toLowerCase())));
+  if(!filtered.length){root.append(h("div",{class:"card empty"},items.length?"No AI judgment items match these filters.":
+    `No AI judgment items are available for this ${run.status||"historical"} run.`));return}
+  const pageSize=100,pageCount=Math.max(1,Math.ceil(filtered.length/pageSize));
+  S.judgePage=Math.max(0,Math.min(S.judgePage,pageCount-1));
+  const pageStart=S.judgePage*pageSize,pageItems=filtered.slice(pageStart,pageStart+pageSize);
+  S.judgeIndex=Math.max(0,Math.min(S.judgeIndex,pageItems.length-1));
+  const pager=h("div",{class:"actions"},
+    h("button",{class:"btn",type:"button",disabled:S.judgePage===0,onclick:()=>{S.judgePage-=1;S.judgeIndex=0;renderJudging()}},"Previous"),
+    h("span",{class:"sub"},`Showing ${pageStart+1}-${pageStart+pageItems.length} of ${filtered.length}`),
+    h("button",{class:"btn",type:"button",disabled:S.judgePage>=pageCount-1,onclick:()=>{S.judgePage+=1;S.judgeIndex=0;renderJudging()}},"Next"));
+  const list=h("div",{class:"card audit-list"},h("div",{class:"audit-list-head"},h("span",{},"Source"),h("span",{},"Attribute"),h("span",{},"Batch"),h("span",{},"Outcome")));
+  pageItems.forEach((item,index)=>list.append(h("button",{class:`audit-item ${index===S.judgeIndex?"on":""}`,type:"button",onclick:()=>{S.judgeIndex=index;renderJudging()}},
+    h("code",{},item.sourceId||"--"),h("code",{},item.attribute),h("span",{},String(item.batchIndex+1)),
+    h("span",{class:`outcome ${item.outcome}`},item.outcome))));
+  const grid=h("div",{class:"audit-grid"},list);renderJudgeDetail(grid,pageItems[S.judgeIndex],filters);root.append(pager,grid);
+}
+function reportFilters(root,filters){
+  const models=["",...S.run.config.models],attrs=["",...S.run.attributes.map(a=>a.name)];
+  const model=h("select",{},...models.map(v=>h("option",{value:v},v||"All models")));
+  const attr=h("select",{},...attrs.map(v=>h("option",{value:v},v||"All attributes")));
+  model.value=filters.model||"";attr.value=filters.attr||"";
+  [model,attr].forEach(n=>n.addEventListener("change",()=>renderPerAttribute({model:model.value,attr:attr.value})));
+  root.append(h("div",{class:"filters two"},model,attr));
+}
+function renderPerAttribute(filters={}){
+  const root=$("#tab-attributes");clear(root);reportFilters(root,filters);
+  let rows=(S.run.report.per_attribute||[]).filter(r=>(!filters.model||r.model===filters.model)&&(!filters.attr||r.attribute===filters.attr));
+  rows.sort((a,b)=>{const k=S.attrSort.key,av=a[k]??"",bv=b[k]??"";return (av>bv?1:av<bv?-1:0)*S.attrSort.dir});
+  const cols=[{key:"model",label:"Model",class:"mono"},{key:"attribute",label:"Attribute",class:"mono"},
+    {key:"completeness",label:"Completeness",render:r=>fmtPct(r.completeness)},{key:"domain_validity",label:"Domain validity",render:r=>fmtPct(r.domain_validity)},
+    {key:"count",label:"Compared"}];
+  const heatmap=h("article",{class:"card",style:"margin-bottom:12px"},h("div",{class:"sub"},"Domain-validity heatmap"),h("div",{class:"chart",id:"attrHeatmap"}));
+  root.append(heatmap,makeTable(cols,rows,key=>{if(S.attrSort.key===key)S.attrSort.dir*=-1;else S.attrSort={key,dir:1};renderPerAttribute(filters)}));
+  requestAnimationFrame(()=>{
+    const models=[...new Set(rows.map(r=>r.model))],attrs=[...new Set(rows.map(r=>r.attribute))];
+    const chart=$("#attrHeatmap");chart.style.height=`${Math.max(300,Math.min(820,attrs.length*19+130))}px`;
+    const c=echarts.init(chart);S.charts.push(c);
+    c.setOption({tooltip:{formatter:p=>`${attrs[p.data[1]]}<br>${models[p.data[0]]}: ${fmtPct(p.data[2])}`},
+      grid:{left:Math.min(260,Math.max(110,Math.max(0,...attrs.map(a=>a.length))*7)),right:45,top:25,bottom:70},
+      xAxis:{type:"category",data:models,axisLabel:{rotate:25}},yAxis:{type:"category",data:attrs,axisLabel:{fontFamily:"monospace",fontSize:10}},
+      visualMap:{min:0,max:1,calculable:false,orient:"horizontal",left:"center",bottom:5,
+        inRange:{color:["#d9485f","#f5c36a","#2fb783"]}},
+      series:[{type:"heatmap",data:rows.map(r=>[models.indexOf(r.model),attrs.indexOf(r.attribute),r.domain_validity||0]),label:{show:false}}]});
+  });
+}
+function renderQuality(filters={}){
+  const root=$("#tab-quality");clear(root);
+  const model=h("select",{},h("option",{value:""},"All models"),...S.run.config.models.map(v=>h("option",{value:v},v)));
+  const attr=h("select",{},h("option",{value:""},"All attributes"),...S.run.attributes.map(v=>h("option",{value:v.name},v.name)));
+  const status=h("select",{},h("option",{value:""},"Violations and disputes"),h("option",{value:"invalid"},"Violations only"),h("option",{value:"disputed"},"Disputes only"));
+  const source=h("input",{type:"search",placeholder:"Source / analysis id",value:filters.source||""});
+  model.value=filters.model||"";attr.value=filters.attr||"";status.value=filters.status||"";
+  const refresh=()=>renderQuality({model:model.value,attr:attr.value,status:status.value,source:source.value.trim()});
+  model.addEventListener("change",refresh);attr.addEventListener("change",refresh);status.addEventListener("change",refresh);source.addEventListener("change",refresh);
+  root.append(h("div",{class:"filters"},model,attr,status,source));
+  const sourceMatch=row=>!filters.source||`${row.source_id||""} ${row.analysis_id||""}`.toLowerCase().includes(filters.source.toLowerCase());
+  const violations=(S.run.report.violations||[]).filter(r=>(!filters.model||r.model===filters.model)&&(!filters.attr||r.attribute===filters.attr)&&sourceMatch(r));
+  const disagreements=(S.run.report.disagreements||[]).filter(r=>(!filters.model||Object.hasOwn(r.outputs,filters.model))&&(!filters.attr||r.attribute===filters.attr)&&sourceMatch(r));
+  const stats=h("div",{class:"kpis"});
+  [["Schema/domain violations",violations.length,"Invalid or missing outputs"],["Disputed items",disagreements.length,"Canonical model disagreement"],
+   ["Candidate errors",S.run.progress.errors||0,"Transport, HTTP, or parse"],["Retries",S.run.progress.retries||0,"Retryable request attempts"]].forEach(([l,v,n])=>
+    stats.append(h("article",{class:"card kpi"},h("div",{class:"label"},l),h("div",{class:"value"},fmtNum(v)),h("div",{class:"note"},n))));
+  const vcols=[{key:"source_id",label:"Source",class:"mono"},{key:"model",label:"Model",class:"mono"},{key:"attribute",label:"Attribute",class:"mono"},
+    {key:"reason",label:"Violation",render:r=>h("span",{class:"bad"},r.reason)},{key:"raw",label:"Raw output",render:r=>fmtValue(r.raw)}];
+  const dcols=[{key:"source_id",label:"Source",class:"mono"},{key:"attribute",label:"Attribute",class:"mono"},
+    {key:"outputs",label:"Candidate outputs",render:r=>Object.entries(r.outputs).map(([m,o])=>`${m}: ${fmtValue(o.canonical)}${o.valid?"":" [invalid]"}`).join(" | ")}];
+  const panels=[];
+  if(filters.status!=="disputed")panels.push(h("article",{class:"card"},h("h3",{},"Schema and domain violations"),makeTable(vcols,violations)));
+  if(filters.status!=="invalid")panels.push(h("article",{class:"card"},h("h3",{},"Disagreement explorer"),makeTable(dcols,disagreements)));
+  root.append(stats,h("div",{class:panels.length===2?"split":""},...panels));
+}
+function renderReview(){
+  const root=$("#tab-review");clear(root);const allDisputes=S.run.report.disagreements||[];
+  const status=h("select",{},h("option",{value:""},"All review statuses"),h("option",{value:"unreviewed"},"Unreviewed"),
+    h("option",{value:"reviewed"},"Reviewed"),h("option",{value:"uncertain"},"Uncertain"));
+  const source=h("input",{type:"search",placeholder:"Source / analysis id",value:S.reviewFilters.source||""});
+  status.value=S.reviewFilters.status||"";
+  const refresh=()=>{S.reviewFilters={status:status.value,source:source.value.trim()};S.reviewIndex=0;renderReview()};
+  status.addEventListener("change",refresh);source.addEventListener("change",refresh);
+  root.append(h("div",{class:"filters two"},status,source));
+  const disputes=allDisputes.filter(dispute=>{
+    const label=(S.run.manual_labels||{})[`${dispute.analysis_id}|${dispute.attribute}`];
+    const sourceMatch=!S.reviewFilters.source||`${dispute.source_id||""} ${dispute.analysis_id||""}`.toLowerCase().includes(S.reviewFilters.source.toLowerCase());
+    const statusMatch=!S.reviewFilters.status||(S.reviewFilters.status==="unreviewed"&&!label)||
+      (S.reviewFilters.status==="reviewed"&&label&&label.decision!=="uncertain")||
+      (S.reviewFilters.status==="uncertain"&&label&&label.decision==="uncertain");
+    return sourceMatch&&statusMatch;
+  });
+  if(!disputes.length){root.append(h("div",{class:"card empty"},allDisputes.length?"No disputed outputs match these filters.":"No disputed outputs to adjudicate."));return}
+  S.reviewIndex=Math.max(0,Math.min(S.reviewIndex,disputes.length-1));const list=h("div",{class:"card dispute-list"});
+  disputes.forEach((d,i)=>list.append(h("button",{class:`dispute ${i===S.reviewIndex?"on":""}`,type:"button",onclick:()=>{S.reviewIndex=i;renderReview()}},
+    h("b",{},d.attribute),h("span",{},`${d.source_id} | ${Object.keys(d.outputs).length} candidates`))));
+  const d=disputes[S.reviewIndex],detail=h("article",{class:"card"});detail.append(h("h3",{},d.attribute),h("p",{class:"sub"},`Source ${d.source_id} | Analysis ${d.analysis_id}`));
+  const transcript=(S.run.transcripts||[]).find(t=>t.analysis_id===d.analysis_id);
+  detail.append(h("h4",{},"Transcript"),h("div",{class:"transcript"},transcript?transcript.transcript:"Transcript unavailable"));
+  const outputs=h("div",{class:"output-grid"});
+  Object.entries(d.outputs).forEach(([model,o])=>outputs.append(h("div",{class:"output"},h("b",{},model),
+    h("code",{},fmtValue(o.raw)),h("span",{class:o.valid?"good":"bad"},o.valid?"Valid":o.reason))));
+  detail.append(h("h4",{},"Candidate outputs"),outputs);renderManualForm(detail,d);
+  root.append(h("div",{class:"review-grid"},list,detail));
+}
+function renderManualForm(parent,dispute){
+  const current=(S.run.manual_labels||{})[`${dispute.analysis_id}|${dispute.attribute}`]||{};
+  const box=h("div",{class:"manual"},h("h4",{},"Human adjudication"));
+  const decision=h("select",{},...[
+    ["expected","Enter expected value"],["accepted","Accept one candidate"],["tie","Accept multiple / tie"],["uncertain","Mark uncertain"]
+  ].map(([v,l])=>{const o=h("option",{value:v},l);o.selected=(current.decision||"expected")===v;return o}));
+  const expected=h("input",{value:current.expected_value===undefined?"":fmtValue(current.expected_value),placeholder:"Expected value (JSON accepted)"});
+  box.append(h("div",{class:"manual-fields"},decision,expected));
+  const accepted=h("div",{class:"accept-list"});
+  S.run.config.models.forEach(model=>{
+    const input=h("input",{type:"checkbox",checked:(current.accepted_models||[]).includes(model)});
+    accepted.append(h("label",{},input,model));
+  });box.append(accepted);
+  const updateVisibility=()=>{expected.style.display=decision.value==="expected"?"block":"none";accepted.style.display=["accepted","tie"].includes(decision.value)?"flex":"none"};
+  decision.addEventListener("change",updateVisibility);updateVisibility();
+  const save=h("button",{class:"btn primary",type:"button",onclick:async()=>{
+    const payload={analysis_id:dispute.analysis_id,attribute:dispute.attribute,decision:decision.value};
+    if(decision.value==="expected"){let v=expected.value;try{v=JSON.parse(v)}catch{}payload.expected_value=v}
+    if(["accepted","tie"].includes(decision.value))payload.accepted_models=[...accepted.querySelectorAll("label")].filter(l=>l.querySelector("input").checked).map(l=>l.textContent.trim());
+    try{const data=await api(`/api/model-lab/runs/${S.run.id}/labels`,{method:"POST",body:JSON.stringify(payload)});
+      S.run.report=data.report;S.run.manual_labels=data.manual_labels;showNotice("Manual label saved and reviewed accuracy recomputed.");renderReport(S.run);S.activeTab="review";renderTabs();renderReview();
+    }catch(error){showNotice(error.message,"error")}
+  }},"Save label");
+  const remove=h("button",{class:"btn",type:"button",onclick:async()=>{
+    try{const data=await api(`/api/model-lab/runs/${S.run.id}/labels`,{method:"POST",body:JSON.stringify({analysis_id:dispute.analysis_id,attribute:dispute.attribute,delete:true})});
+      S.run.report=data.report;S.run.manual_labels=data.manual_labels;renderReview();showNotice("Manual label removed.");
+    }catch(error){showNotice(error.message,"error")}
+  }},"Remove");
+  box.append(h("div",{class:"actions"},save,remove,h("span",{class:"sub"},"Stored only in this local run artifact.")));parent.append(box);
+}
+function renderOperations(){
+  const root=$("#tab-operations"),rows=S.run.report.leaderboard||[];clear(root);
+  const chartCard=h("article",{class:"card"},h("div",{class:"sub"},"Average and p95 request latency"),h("div",{class:"chart",id:"opsChart"}));
+  const cols=[{key:"model",label:"Model",class:"mono"},{key:"avg_latency_seconds",label:"Avg seconds",render:r=>fmtNum(r.avg_latency_seconds,3)},
+    {key:"p95_latency_seconds",label:"P95 seconds",render:r=>fmtNum(r.p95_latency_seconds,3)},{key:"prompt_tokens",label:"Prompt tokens",render:r=>fmtNum(r.prompt_tokens)},
+    {key:"completion_tokens",label:"Completion tokens",render:r=>fmtNum(r.completion_tokens)},{key:"estimated_cost_usd",label:"Configured cost",render:r=>r.estimated_cost_usd===null?"Unavailable":`$${fmtNum(r.estimated_cost_usd,6)}`}];
+  root.append(h("div",{class:"split"},chartCard,makeTable(cols,rows)));
+  requestAnimationFrame(()=>{const c=echarts.init($("#opsChart"));S.charts.push(c);c.setOption({tooltip:{trigger:"axis"},legend:{bottom:0},grid:{left:48,right:16,top:20,bottom:50},
+    xAxis:{type:"category",data:rows.map(r=>r.model),axisLabel:{rotate:20}},yAxis:{type:"value",name:"seconds"},
+    series:[{name:"Average",type:"bar",data:rows.map(r=>r.avg_latency_seconds||0)},{name:"P95",type:"bar",data:rows.map(r=>r.p95_latency_seconds||0)}]})});
+}
+function renderMethodology(){
+  const root=$("#tab-methodology"),report=S.run.report,config=S.run.config;clear(root);
+  const weights=h("div",{class:"weights"});Object.entries(report.weights||{}).forEach(([key,value])=>weights.append(h("div",{class:"weight"},
+    h("span",{},key.replaceAll("_"," ")),h("i",{style:`width:${value*100}%`}),h("b",{},`${value*100}%`))));
+  const judge=config.judge||{},judgeAttributes=Array.isArray(judge.attributes)?judge.attributes:(config.attributes||[]);
+  const configRows=Object.entries({Mode:config.mode,Job:config.job_name,Dates:`${config.start_date} through ${config.end_date}`,Seed:config.seed,
+    Transcripts:config.sample_size,Models:config.models.join(", "),Attributes:config.attributes.length,"Batch cap":20,
+    "Judge mode":judge.enabled?judge.scope:"Disabled","Judge attributes":judge.enabled?judgeAttributes.join(", "):"Disabled",
+    "Transcript cap":`${fmtNum(config.transcript_char_limit)} characters`});
+  const configBox=h("article",{class:"card"},h("h3",{},"Reproducible run configuration"));
+  configRows.forEach(([k,v])=>configBox.append(h("p",{},h("strong",{},`${k}: `),String(v))));
+  root.append(h("div",{class:"method"},h("article",{class:"card"},h("h3",{},"Operational quality weights"),weights,
+      h("p",{},"Historical baseline agreement is deliberately secondary and never labeled as accuracy.")),
+    h("article",{class:"card"},h("h3",{},"Evaluation labels"),h("p",{},report.methodology.operational_quality),
+      h("p",{},report.methodology.baseline),h("p",{},report.methodology.judge),h("p",{},report.methodology.reviewed)),
+    configBox,h("article",{class:"card"},h("h3",{},"Fair-test controls"),
+      h("p",{},"Every candidate received identical transcript text, job system prompt, attribute contract, order, and batch boundaries."),
+      h("p",{},"Candidate labels were randomized before optional judging. The judge saw no deployment names."),
+      h("p",{},"Transcript truncation is recorded per sample. Transcript text and authorization values are never logged."))));
+}
+async function loadHistory(generation=S.pollGeneration){
+  try{
+    const data=await api("/api/model-lab/runs");
+    if(generation!==S.pollGeneration)return;
+    const root=$("#historyGrid");clear(root);
+    (data.runs||[]).slice(0,12).forEach(run=>root.append(h("button",{class:"history-item",type:"button",onclick:()=>openRun(run.id)},
+      h("b",{},`${run.job_name||"Run"} - ${run.status}`),h("span",{},`${fmtDate(run.created_at)} | ${(run.models||[]).join(", ")}`),
+      h("span",{},`${run.sample_size||0} transcripts | ${run.attribute_count||0} test attributes${run.judge_attribute_count?` | ${run.judge_attribute_count} judge attributes`:""}${run.leader?` | leader ${run.leader}`:""}`))));
+    if(!(data.runs||[]).length)root.append(h("div",{class:"sub"},"No local runs yet."));
+  }catch(error){if(generation===S.pollGeneration)showNotice(error.message,"error")}
+}
+async function openRun(id){
+  const generation=activateRun(id);
+  try{
+    const run=await api(`/api/model-lab/runs/${id}`);
+    if(!isActiveRun(id,generation))return;
+    S.run=run;
+    if(["queued","running","cancelling"].includes(run.status)){
+      sessionStorage.setItem("optic-lab-run",id);S.startedAt=new Date(run.created_at).valueOf();
+      showProgress(run_summary(run));pollRun(id,generation);
+    }
+    else if(run.report&&run.report.recommendation)renderReport(run);
+    else showNotice("This terminal run has no report data.","error");
+  }catch(error){if(isActiveRun(id,generation))showNotice(error.message,"error")}
+}
+function bind(){
+  $("#themeButton").addEventListener("click",()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark"));
+  $("#jobSelect").addEventListener("change",()=>loadBootstrap($("#jobSelect").value));
+  ["startDate","endDate","sampleSize","seed","judgeScope"].forEach(id=>$("#"+id).addEventListener("change",markDirty));
+  $("#judgeEnabled").addEventListener("change",()=>{renderJudgeAttributes();markDirty()});
+  $("#judgeIncludeStrings").addEventListener("change",()=>{renderJudgeAttributes();markDirty()});
+  $("#attrSearch").addEventListener("input",renderAttributes);
+  $("#selectVisible").addEventListener("click",()=>{filteredAttributes().forEach(a=>S.selectedAttrs.add(a.name));renderAttributes();markDirty()});
+  $("#clearAttrs").addEventListener("click",()=>{S.selectedAttrs.clear();renderAttributes();markDirty()});
+  $("#addModel").addEventListener("click",()=>{const value=$("#customModel").value.trim().toLowerCase();
+    if(!/^[a-z0-9](?:[a-z0-9.-]{0,62}[a-z0-9])?$/.test(value)){showNotice("Enter a valid lowercase deployment slug.","error");return}
+    S.selectedModels.add(value);$("#customModel").value="";renderModels();markDirty()});
+  $("#preflightButton").addEventListener("click",runPreflight);$("#testButton").addEventListener("click",startRun);
+  $("#cancelButton").addEventListener("click",cancelRun);window.addEventListener("resize",()=>S.charts.forEach(c=>c.resize()));
+}
+async function init(){
+  setTheme(localStorage.getItem("optic-lab-theme")||"light");bind();renderModes();
+  const requestedMode=new URLSearchParams(location.search).get("mode");if(["real","demo"].includes(requestedMode)){S.mode=requestedMode;renderModes()}
+  const now=new Date(),localNow=new Date(now.getTime()-now.getTimezoneOffset()*60000),today=localNow.toISOString().slice(0,10);
+  $("#endDate").value=today;$("#startDate").value=`${now.getFullYear()}-01-01`;
+  $("#sampleSize").value="10";await loadBootstrap();await loadHistory(S.pollGeneration);
+  const active=sessionStorage.getItem("optic-lab-run");if(active)openRun(active);
+}
+init();
+</script>
+</body>
+</html>
